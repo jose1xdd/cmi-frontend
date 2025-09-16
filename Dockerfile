@@ -9,7 +9,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Instalar dependencias exactas según lockfile
-RUN npm ci
+RUN npm install
 
 # Copiar el resto del código
 COPY . .
