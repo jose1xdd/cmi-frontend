@@ -133,7 +133,7 @@ function PublicacionFoto({ fotoId, titulo }: { fotoId: number; titulo: string })
         const token = localStorage.getItem('token')
         const BASE_URL =
           process.env.NEXT_PUBLIC_API_BASE_URL ||
-          'http://148.113.175.43:8080/cmi-apigateway'
+          'https://backend-quillacinga.ddns.net/cmi-apigateway'
 
         const res = await fetch(`${BASE_URL}/index/index/${fotoId}`, {
           headers: {
