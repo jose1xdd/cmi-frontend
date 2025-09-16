@@ -1,54 +1,38 @@
 # =========================
-# Etapa 1: Dependencias
+# Etapa 1: Build
 # =========================
-FROM oven/bun:1 AS deps
+FROM node:20.11.1-alpine3.19 AS builder
 
 WORKDIR /app
 
-# Copiar package.json (y bun.lock si existe)
-COPY package.json bun.lock ./
+# Copiar package.json y lockfiles
+COPY package*.json ./
 
-# Instalar dependencias (usando bun)
-RUN bun install --frozen-lockfile
+# Instalar dependencias exactas según lockfile
+RUN npm ci
 
-# =========================
-# Etapa 2: Build
-# =========================
-FROM oven/bun:1 AS builder
-
-WORKDIR /app
-
-# Copiar dependencias instaladas
-COPY --from=deps /app/node_modules ./node_modules
+# Copiar el resto del código
 COPY . .
 
-# Construir la app Next.js con límites de memoria (1.5 GB máx)
-RUN NODE_OPTIONS="--max-old-space-size=1536" bun run build
+# Construir la app de Next.js
+RUN npm run build
 
 # =========================
-# Etapa 3: Producción
+# Etapa 2: Producción
 # =========================
-FROM oven/bun:1 AS runner
+FROM node:20.11.1-alpine3.19 AS runner
 
 WORKDIR /app
+
 ENV NODE_ENV=production
 ENV PORT=3000
 EXPOSE 3000
 
-# Crear usuario no-root (compatible con Debian/Ubuntu)
-RUN groupadd -g 1001 nodejs && \
-    useradd -u 1001 -g nodejs -m nextjs
-
-# Copiar archivos necesarios
+# Copiar solo lo necesario desde el builder
 COPY --from=builder /app/package.json ./package.json
-COPY --from=deps /app/node_modules ./node_modules
+COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/next.config.js ./next.config.js
 
-# Asignar permisos correctos
-RUN chown -R nextjs:nodejs /app
-USER nextjs
-
-# Iniciar Next.js en modo producción con Bun
-CMD ["bun", "run", "start", "--port", "3000"]
+# Arrancar Next.js
+CMD ["npm", "start"]
