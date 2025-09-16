@@ -1,0 +1,47 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Reemplazar secretos en deploy-details.json
+        run: |
+          if [ -f "deploy-details.json" ]; then
+            echo "Procesando deploy-details.json..."
+            echo "Archivo actualizado:"
+            cat deploy-details.json
+          else
+            echo "Archivo deploy-details.json no encontrado en la raíz."
+          fi
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.5.3
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add VPS to known_hosts
+        run: |
+          ssh-keyscan -H 148.113.175.43 >> ~/.ssh/known_hosts
+
+      - name: Add Git remote
+        run: |
+          git remote add despliegue ssh://despliegue@148.113.175.43/var/repos/front.git
+
+      - name: Push to VPS
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add deploy-details.json
+          git commit -m "update deploy details with secrets" || echo "No changes to commit"
+          git push -f despliegue master:master
