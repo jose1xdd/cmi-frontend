@@ -2,6 +2,6 @@
     "port": "3000",
     "environments": {
         "PORT": "3000",
-        "NEXT_PUBLIC_API_BASE_URL":"http://apigateway_container:8080/cmi-apigateway"
+        "NEXT_PUBLIC_API_BASE_URL":"https://backend-quillacinga.ddns.net/cmi-apigateway"
     }
 }
