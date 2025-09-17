@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
 import {
   enumEscolaridad,
@@ -43,7 +42,6 @@ interface Familia {
 }
 
 export default function PerfilAdmin({ data }: PerfilAdminProps) {
-  const router = useRouter()
   const [form, setForm] = useState(data)
   const [showModal, setShowModal] = useState(false)
 
@@ -316,12 +314,6 @@ export default function PerfilAdmin({ data }: PerfilAdminProps) {
             className="bg-[#7d4f2b] text-white px-6 py-2 rounded hover:bg-[#5e3c1f]"
           >
             Guardar información
-          </button>
-          <button
-            className="bg-[#7d4f2b] text-white px-6 py-2 rounded hover:bg-[#5e3c1f]"
-            onClick={() => router.push('/dashboard/perfil/recuperar')}
-          >
-            Recuperar contraseña
           </button>
         </div>
       </div>

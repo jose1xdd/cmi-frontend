@@ -11,6 +11,18 @@ interface UsuarioSistema {
   rol: 'admin' | 'usuario'
 }
 
+interface Persona {
+  id: string
+  nombre: string
+  apellido: string
+}
+
+interface ApiResponse {
+  estado: string
+  message: string
+  data: string
+}
+
 export default function FormularioUsuarioSistemaPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -19,12 +31,16 @@ export default function FormularioUsuarioSistemaPage() {
   const esEdicion = !!emailParam
 
   const [showModal, setShowModal] = useState(false)
+  const [modalMessage, setModalMessage] = useState<string>('')
   const [data, setData] = useState<UsuarioSistema>({
     email: '',
     password: '',
     personaId: '',
     rol: 'usuario',
   })
+
+  const [personasDisponibles, setPersonasDisponibles] = useState<Persona[]>([])
+  const [loadingPersonas, setLoadingPersonas] = useState(false)
 
   // cargar datos si es edición
   useEffect(() => {
@@ -42,34 +58,67 @@ export default function FormularioUsuarioSistemaPage() {
     }
   }, [esEdicion, emailParam])
 
+  // cargar personas sin usuario (solo en creación)
+  useEffect(() => {
+    if (!esEdicion) {
+      const fetchData = async () => {
+        setLoadingPersonas(true)
+        try {
+          const personas = await apiFetch<{ items: Persona[] }>(
+            '/personas/?page=1&page_size=100'
+          )
+          const usuarios = await apiFetch<{ items: UsuarioSistema[] }>(
+            '/?page=1&page_size=100'
+          )
+
+          const personaIdsConUsuario = new Set(
+            usuarios.items.map((u) => u.personaId)
+          )
+
+          const disponibles = personas.items.filter(
+            (p) => !personaIdsConUsuario.has(p.id)
+          )
+
+          setPersonasDisponibles(disponibles)
+        } catch (err) {
+          console.error('Error cargando personas disponibles', err)
+        } finally {
+          setLoadingPersonas(false)
+        }
+      }
+
+      fetchData()
+    }
+  }, [esEdicion])
+
   const handleInputChange = (key: keyof UsuarioSistema, value: string) => {
     setData((prev) => ({ ...prev, [key]: value }))
   }
 
   const handleGuardar = async () => {
     try {
+      let response: ApiResponse
       if (esEdicion && emailParam) {
-        // editar usuario → solo email
-        await apiFetch(`/${encodeURIComponent(emailParam)}`, {
+        response = await apiFetch<ApiResponse>(`/${encodeURIComponent(emailParam)}`, {
           method: 'PUT',
           body: JSON.stringify({ email: data.email }),
         })
       } else {
-        // crear usuario → todos los campos
-        await apiFetch('/create', {
+        response = await apiFetch<ApiResponse>('/create', {
           method: 'POST',
-          body: JSON.stringify({
-            email: data.email,
-            password: data.password,
-            personaId: data.personaId,
-            rol: data.rol,
-          }),
+          body: JSON.stringify(data),
         })
       }
 
+      setModalMessage(response.message || 'Operación realizada con éxito')
       setShowModal(true)
-    } catch {
-      alert('Error al guardar el usuario')
+    } catch (err: unknown) {
+      const errorMessage =
+        err && typeof err === 'object' && 'message' in err && typeof (err as { message?: string }).message === 'string'
+          ? (err as { message: string }).message
+          : 'Error al guardar el usuario'
+      setModalMessage(errorMessage)
+      setShowModal(true)
     }
   }
 
@@ -113,12 +162,27 @@ export default function FormularioUsuarioSistemaPage() {
           {/* PersonaId → solo en creación */}
           <div>
             <label className="block text-sm text-[#7d4f2b] mb-1">Persona ID</label>
-            <input
-              value={data.personaId}
-              onChange={(e) => handleInputChange('personaId', e.target.value)}
-              disabled={esEdicion}
-              className={`w-full border border-[#7d4f2b] rounded px-3 py-2 ${esEdicion ? 'bg-gray-100' : ''}`}
-            />
+            {esEdicion ? (
+              <input
+                value={data.personaId}
+                disabled
+                className="w-full border border-[#7d4f2b] rounded px-3 py-2 bg-gray-100"
+              />
+            ) : (
+              <select
+                value={data.personaId}
+                onChange={(e) => handleInputChange('personaId', e.target.value)}
+                disabled={loadingPersonas}
+                className="w-full border border-[#7d4f2b] rounded px-3 py-2"
+              >
+                <option value="">Seleccione una persona</option>
+                {personasDisponibles.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nombre} {p.apellido} ({p.id})
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* Rol → solo en creación */}
@@ -149,12 +213,8 @@ export default function FormularioUsuarioSistemaPage() {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white px-8 py-6 rounded shadow-md w-80 text-center">
-            <p className="text-gray-800 mb-4">
-              {esEdicion
-                ? 'Usuario actualizado con éxito'
-                : 'Usuario creado con éxito'}
-            </p>
+          <div className="bg-white px-8 py-6 rounded shadow-md w-96 text-center">
+            <p className="text-gray-800 mb-4">{modalMessage}</p>
             <button
               onClick={closeModal}
               className="bg-[#7d4f2b] text-white px-6 py-2 rounded hover:bg-[#5e3c1f]"
