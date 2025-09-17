@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 interface UsuarioData {
   nombre: string
@@ -19,23 +20,12 @@ interface PerfilUsuarioProps {
 }
 
 export default function PerfilUsuario({ data }: PerfilUsuarioProps) {
-  const [form, setForm] = useState(data)
-  const [editando, setEditando] = useState(false)
-  const [showModal, setShowModal] = useState(false)
+  const [form] = useState(data)
+  const router = useRouter()
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm(prev => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }))
+  const handleRecuperar = () => {
+    router.push('/dashboard/perfil/recuperar')
   }
-
-  const handleEditar = () => setEditando(true)
-  const handleGuardar = () => {
-    setEditando(false)
-    setShowModal(true)
-  }
-  const closeModal = () => setShowModal(false)
 
   return (
     <div className="w-full px-4 pt-5">
@@ -47,16 +37,15 @@ export default function PerfilUsuario({ data }: PerfilUsuarioProps) {
           </div>
         </div>
 
-        {/* Formulario */}
+        {/* Formulario (solo lectura) */}
         <form className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="block text-sm mb-1 text-[#7d4f2b]">Nombre</label>
             <input
               name="nombre"
               value={form.nombre}
-              readOnly={!editando}
-              onChange={handleChange}
-              className="w-full border border-[#b57d50] rounded px-3 py-2 bg-white"
+              readOnly
+              className="w-full border border-[#b57d50] rounded px-3 py-2 bg-gray-100"
             />
           </div>
           <div>
@@ -64,9 +53,8 @@ export default function PerfilUsuario({ data }: PerfilUsuarioProps) {
             <input
               name="apellido"
               value={form.apellido}
-              readOnly={!editando}
-              onChange={handleChange}
-              className="w-full border border-[#b57d50] rounded px-3 py-2 bg-white"
+              readOnly
+              className="w-full border border-[#b57d50] rounded px-3 py-2 bg-gray-100"
             />
           </div>
           <div>
@@ -76,9 +64,8 @@ export default function PerfilUsuario({ data }: PerfilUsuarioProps) {
             <input
               name="tipoDocumento"
               value={form.tipoDocumento}
-              readOnly={!editando}
-              onChange={handleChange}
-              className="w-full border border-[#b57d50] rounded px-3 py-2 bg-white"
+              readOnly
+              className="w-full border border-[#b57d50] rounded px-3 py-2 bg-gray-100"
             />
           </div>
           <div>
@@ -100,9 +87,8 @@ export default function PerfilUsuario({ data }: PerfilUsuarioProps) {
               type="date"
               name="nacimiento"
               value={form.nacimiento}
-              readOnly={!editando}
-              onChange={handleChange}
-              className="w-full border border-[#b57d50] rounded px-3 py-2 bg-white"
+              readOnly
+              className="w-full border border-[#b57d50] rounded px-3 py-2 bg-gray-100"
             />
           </div>
           <div>
@@ -110,9 +96,8 @@ export default function PerfilUsuario({ data }: PerfilUsuarioProps) {
             <input
               name="sexo"
               value={form.sexo}
-              readOnly={!editando}
-              onChange={handleChange}
-              className="w-full border border-[#b57d50] rounded px-3 py-2 bg-white"
+              readOnly
+              className="w-full border border-[#b57d50] rounded px-3 py-2 bg-gray-100"
             />
           </div>
           <div className="md:col-span-2">
@@ -120,9 +105,8 @@ export default function PerfilUsuario({ data }: PerfilUsuarioProps) {
             <input
               name="direccion"
               value={form.direccion}
-              readOnly={!editando}
-              onChange={handleChange}
-              className="w-full border border-[#b57d50] rounded px-3 py-2 bg-white"
+              readOnly
+              className="w-full border border-[#b57d50] rounded px-3 py-2 bg-gray-100"
             />
           </div>
           <div>
@@ -139,51 +123,23 @@ export default function PerfilUsuario({ data }: PerfilUsuarioProps) {
             <input
               name="telefono"
               value={form.telefono}
-              readOnly={!editando}
-              onChange={handleChange}
-              className="w-full border border-[#b57d50] rounded px-3 py-2 bg-white"
+              readOnly
+              className="w-full border border-[#b57d50] rounded px-3 py-2 bg-gray-100"
             />
           </div>
         </form>
 
-        {/* Botones */}
+        {/* Botón recuperar contraseña */}
         <div className="mt-4 flex justify-center w-full">
-          {editando ? (
-            <button
-              type="button"
-              onClick={handleGuardar}
-              className="bg-[#9c5a25] hover:bg-[#7b4317] text-white px-8 py-2 rounded-lg font-semibold transition-colors"
-            >
-              Guardar información
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={handleEditar}
-              className="bg-[#9c5a25] hover:bg-[#7b4317] text-white px-8 py-2 rounded-lg font-semibold transition-colors"
-            >
-              Editar información
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={handleRecuperar}
+            className="bg-[#9c5a25] hover:bg-[#7b4317] text-white px-8 py-2 rounded-lg font-semibold transition-colors"
+          >
+            Recuperar contraseña
+          </button>
         </div>
       </div>
-
-      {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white px-8 py-6 rounded shadow-md w-80 text-center">
-            <p className="text-gray-800 mb-4">
-              ¡Información guardada correctamente!
-            </p>
-            <button
-              onClick={closeModal}
-              className="bg-[#7d4f2b] text-white px-6 py-2 rounded hover:bg-[#5e3c1f]"
-            >
-              Aceptar
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
