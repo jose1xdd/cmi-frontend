@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Trash } from 'lucide-react'
+import { Trash, Upload, X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
 
@@ -17,6 +17,19 @@ interface FamiliaResponse {
   items: Familia[]
 }
 
+interface UploadError {
+  fila: number
+  id: string
+  mensaje: string
+}
+
+interface UploadResponse {
+  status: string
+  insertados: number
+  total_procesados: number
+  errores: UploadError[]
+}
+
 export default function FamiliaPage() {
   const router = useRouter()
 
@@ -27,10 +40,13 @@ export default function FamiliaPage() {
   const [mensajeExito, setMensajeExito] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // 🔄 paginación
+  // 📊 paginación
   const [page, setPage] = useState(1)
   const pageSize = 10
   const [totalPages, setTotalPages] = useState(1)
+
+  // 📂 carga masiva
+  const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null)
 
   const fetchFamilias = async () => {
     setLoading(true)
@@ -88,12 +104,36 @@ export default function FamiliaPage() {
 
   const cerrarModalExito = async () => {
     setMostrarModalExito(false)
-    await fetchFamilias() // 🔄 refresca la lista después de cerrar el modal
+    await fetchFamilias()
+  }
+
+  // 📂 subir excel
+  const handleUploadExcel = async (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    try {
+      const res = await apiFetch<UploadResponse>('/familias/upload-excel', {
+        method: 'POST',
+        body: formData,
+      })
+      setUploadResult(res)
+      fetchFamilias()
+    } catch {
+      setUploadResult({
+        status: 'error',
+        insertados: 0,
+        total_procesados: 0,
+        errores: [{ fila: 0, id: '-', mensaje: 'Error al subir el archivo' }],
+      })
+    }
   }
 
   return (
     <div>
-      <h1 className="text-2xl sm:text-3xl font-semibold mb-4 text-[#333]">Familias</h1>
+      <h1 className="text-2xl sm:text-3xl font-semibold mb-4 text-[#333]">
+        Familias
+      </h1>
 
       {/* Tabla */}
       <div className="overflow-x-auto border rounded">
@@ -164,8 +204,21 @@ export default function FamiliaPage() {
         </button>
       </div>
 
-      {/* Botón nueva familia */}
-      <div className="flex justify-end mt-6">
+      {/* Botones */}
+      <div className="flex justify-end mt-6 gap-3">
+        <label className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded flex items-center gap-2 cursor-pointer">
+          <Upload size={18} /> Carga masiva (Excel)
+          <input
+            type="file"
+            accept=".xlsx,.xls"
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files && e.target.files[0]) {
+                handleUploadExcel(e.target.files[0])
+              }
+            }}
+          />
+        </label>
         <button
           onClick={() => router.push('/dashboard/familias/nuevo')}
           className="bg-[#7d4f2b] hover:bg-[#5e3c1f] text-white px-6 py-2 rounded"
@@ -173,6 +226,56 @@ export default function FamiliaPage() {
           Nueva familia
         </button>
       </div>
+
+      {/* 📂 Modal resultado carga masiva */}
+      {uploadResult && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-40 flex items-center justify-center px-4">
+          <div className="bg-white rounded-lg shadow-md p-6 max-w-lg w-full text-center relative">
+            <button
+              onClick={() => setUploadResult(null)}
+              className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+            >
+              <X size={20} />
+            </button>
+
+            <h2 className="text-xl font-semibold mb-4 text-[#7d4f2b]">
+              Resultado de la carga masiva
+            </h2>
+
+            <p className="text-sm text-gray-700 mb-2">
+              <strong>Status:</strong> {uploadResult.status}
+            </p>
+            <p className="text-sm text-gray-700 mb-2">
+              <strong>Insertados:</strong> {uploadResult.insertados}
+            </p>
+            <p className="text-sm text-gray-700 mb-4">
+              <strong>Total procesados:</strong> {uploadResult.total_procesados}
+            </p>
+
+            {uploadResult.errores && uploadResult.errores.length > 0 && (
+              <div className="text-left text-sm text-red-700 max-h-40 overflow-y-auto border-t pt-2">
+                <p className="font-semibold mb-2">Errores encontrados:</p>
+                <ul className="list-disc pl-5 space-y-1">
+                  {uploadResult.errores.map((err, idx) => (
+                    <li key={idx}>
+                      <strong>Fila {err.fila}</strong> (ID: {err.id}): {err.mensaje}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="mt-6">
+              <button
+                onClick={() => setUploadResult(null)}
+                className="bg-[#7d4f2b] text-white px-6 py-2 rounded hover:bg-[#5e3c1f]"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal confirmación */}
       {mostrarModalConfirmacion && familiaSeleccionada && (
@@ -191,7 +294,7 @@ export default function FamiliaPage() {
               </button>
               <button
                 onClick={cancelarEliminacion}
-                className="bg-[#b85c38] text-white px-5 py-2 rounded hover:bg-[#96492d]"
+                className="bg-gray-400 text-white px-5 py-2 rounded hover:bg-gray-500"
               >
                 Cancelar
               </button>

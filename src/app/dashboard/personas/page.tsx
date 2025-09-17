@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Eye, Trash, Search, Pencil, X } from 'lucide-react'
+import { Eye, Trash, Search, Pencil, X, Upload } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
 import { enumSexo, enumDocumento } from '@/constants/enums'
@@ -35,10 +35,7 @@ interface Persona {
   telefono: string
   activo: boolean
   idFamilia: number | null
-  parcialidad: {
-    id: number
-    nombre: string
-  } | null
+  parcialidad: { id: number; nombre: string } | null
 }
 
 interface PersonasResponse {
@@ -64,12 +61,25 @@ interface FamiliaResponse {
   items: Familia[]
 }
 
+interface UploadError {
+  fila: number
+  id: string
+  mensaje: string
+}
+
+interface UploadResponse {
+  status: string
+  insertados: number
+  total_procesados: number
+  errores: UploadError[]
+}
+
 export default function UsuariosPage() {
   const router = useRouter()
 
   // filtros
   const [busqueda, setBusqueda] = useState('')
-  const debouncedBusqueda = useDebounce(busqueda, 500) // búsqueda en vivo
+  const debouncedBusqueda = useDebounce(busqueda, 500)
   const [filtroParcialidad, setFiltroParcialidad] = useState('')
   const [filtroFamilia, setFiltroFamilia] = useState('')
   const [filtroSexo, setFiltroSexo] = useState('')
@@ -91,6 +101,9 @@ export default function UsuariosPage() {
   const [selectedUser, setSelectedUser] = useState<Persona | null>(null)
   const [userToDelete, setUserToDelete] = useState<Persona | null>(null)
 
+  // carga masiva
+  const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null)
+
   // cargar usuarios
   const fetchUsuarios = async () => {
     setLoading(true)
@@ -102,15 +115,12 @@ export default function UsuariosPage() {
 
       if (debouncedBusqueda) {
         if (/^\d+$/.test(debouncedBusqueda)) {
-          // si es solo número → documento
           params.append('id', debouncedBusqueda)
         } else if (debouncedBusqueda.includes(' ')) {
-          // si tiene espacio → "nombre apellido"
           const [n, a] = debouncedBusqueda.split(' ')
           if (n) params.append('nombre', n)
           if (a) params.append('apellido', a)
         } else {
-          // caso general → buscar por nombre
           params.append('nombre', debouncedBusqueda)
         }
       }
@@ -119,9 +129,7 @@ export default function UsuariosPage() {
       if (filtroSexo) params.append('sexo', filtroSexo)
       if (filtroDocumento) params.append('tipoDocumento', filtroDocumento)
 
-      const data = await apiFetch<PersonasResponse>(
-        `/personas/?${params.toString()}`
-      )
+      const data = await apiFetch<PersonasResponse>(`/personas/?${params.toString()}`)
       const activos = data.items.filter((u) => u.activo)
       setUsuarios(activos)
       setTotalPages(data.total_pages || 1)
@@ -134,9 +142,7 @@ export default function UsuariosPage() {
 
   const fetchParcialidades = async () => {
     try {
-      const data = await apiFetch<ParcialidadResponse>(
-        '/parcialidad/?page=1&page_size=100'
-      )
+      const data = await apiFetch<ParcialidadResponse>('/parcialidad/?page=1&page_size=100')
       setParcialidades(data.items)
     } catch (error) {
       console.error('Error cargando parcialidades:', error)
@@ -145,9 +151,7 @@ export default function UsuariosPage() {
 
   const fetchFamilias = async () => {
     try {
-      const data = await apiFetch<FamiliaResponse>(
-        '/familias/?page=1&page_size=100'
-      )
+      const data = await apiFetch<FamiliaResponse>('/familias/?page=1&page_size=100')
       setFamilias(data.items)
     } catch (error) {
       console.error('Error cargando familias:', error)
@@ -156,14 +160,7 @@ export default function UsuariosPage() {
 
   useEffect(() => {
     fetchUsuarios()
-  }, [
-    page,
-    debouncedBusqueda,
-    filtroParcialidad,
-    filtroFamilia,
-    filtroSexo,
-    filtroDocumento,
-  ])
+  }, [page, debouncedBusqueda, filtroParcialidad, filtroFamilia, filtroSexo, filtroDocumento])
 
   useEffect(() => {
     fetchParcialidades()
@@ -201,13 +198,33 @@ export default function UsuariosPage() {
     }
   }
 
+  // subir excel
+  const handleUploadExcel = async (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    try {
+      const res = await apiFetch<UploadResponse>('/personas/upload-excel', {
+        method: 'POST',
+        body: formData,
+      })
+      setUploadResult(res)
+      fetchUsuarios()
+    } catch {
+      setUploadResult({
+        status: 'error',
+        insertados: 0,
+        total_procesados: 0,
+        errores: [{ fila: 0, id: '-', mensaje: 'Error al subir el archivo' }],
+      })
+    }
+  }
+
   return (
     <div>
-      <h1 className="text-2xl sm:text-3xl font-semibold mb-4 text-[#333]">
-        Usuarios
-      </h1>
+      <h1 className="text-2xl sm:text-3xl font-semibold mb-4 text-[#333]">Usuarios</h1>
 
-      {/* Buscador + filtros */}
+      {/* Buscador y filtros */}
       <div className="flex flex-col gap-4 mb-4">
         <div className="relative w-full sm:max-w-xs">
           <Search className="absolute left-3 top-2.5 text-[#7d4f2b]" size={18} />
@@ -221,7 +238,6 @@ export default function UsuariosPage() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-          {/* Documento */}
           <select
             value={filtroDocumento}
             onChange={(e) => setFiltroDocumento(e.target.value)}
@@ -235,7 +251,6 @@ export default function UsuariosPage() {
             ))}
           </select>
 
-          {/* Sexo */}
           <select
             value={filtroSexo}
             onChange={(e) => setFiltroSexo(e.target.value)}
@@ -249,7 +264,6 @@ export default function UsuariosPage() {
             ))}
           </select>
 
-          {/* Parcialidad */}
           <select
             value={filtroParcialidad}
             onChange={(e) => setFiltroParcialidad(e.target.value)}
@@ -263,7 +277,6 @@ export default function UsuariosPage() {
             ))}
           </select>
 
-          {/* Familia */}
           <select
             value={filtroFamilia}
             onChange={(e) => setFiltroFamilia(e.target.value)}
@@ -318,41 +331,25 @@ export default function UsuariosPage() {
                       {usuario.nombre} {usuario.apellido}
                     </td>
                     <td className="px-4 py-2">
-                      {enumDocumento[
-                        usuario.tipoDocumento as keyof typeof enumDocumento
-                      ] || usuario.tipoDocumento}
+                      {enumDocumento[usuario.tipoDocumento as keyof typeof enumDocumento] || usuario.tipoDocumento}
                     </td>
                     <td className="px-4 py-2">{usuario.id}</td>
+                    <td className="px-4 py-2 text-center">{usuario.fechaNacimiento}</td>
                     <td className="px-4 py-2 text-center">
-                      {usuario.fechaNacimiento}
-                    </td>
-                    <td className="px-4 py-2 text-center">
-                      {enumSexo[usuario.sexo as keyof typeof enumSexo] ||
-                        usuario.sexo}
+                      {enumSexo[usuario.sexo as keyof typeof enumSexo] || usuario.sexo}
                     </td>
                     <td className="px-4 py-2 text-center">
                       {usuario.parcialidad ? usuario.parcialidad.nombre : '-'}
                     </td>
-                    <td className="px-4 py-2 text-center">
-                      {usuario.idFamilia ?? '-'}
-                    </td>
+                    <td className="px-4 py-2 text-center">{usuario.idFamilia ?? '-'}</td>
                     <td className="px-4 py-2 flex items-center gap-2">
-                      <button
-                        onClick={() => handleVerUsuario(usuario)}
-                        className="text-[#7d4f2b] hover:text-[#5e3c1f]"
-                      >
+                      <button onClick={() => handleVerUsuario(usuario)} className="text-[#7d4f2b] hover:text-[#5e3c1f]">
                         <Eye size={18} />
                       </button>
-                      <button
-                        onClick={() => handleEditar(usuario.id)}
-                        className="text-[#7d4f2b] hover:text-blue-600"
-                      >
+                      <button onClick={() => handleEditar(usuario.id)} className="text-[#7d4f2b] hover:text-blue-600">
                         <Pencil size={18} />
                       </button>
-                      <button
-                        onClick={() => confirmarEliminacion(usuario)}
-                        className="text-[#7d4f2b] hover:text-red-600"
-                      >
+                      <button onClick={() => confirmarEliminacion(usuario)} className="text-[#7d4f2b] hover:text-red-600">
                         <Trash size={18} />
                       </button>
                     </td>
@@ -373,9 +370,7 @@ export default function UsuariosPage() {
         >
           Anterior
         </button>
-        <span>
-          Página {page} de {totalPages}
-        </span>
+        <span>Página {page} de {totalPages}</span>
         <button
           disabled={page >= totalPages}
           onClick={() => setPage((prev) => prev + 1)}
@@ -385,8 +380,21 @@ export default function UsuariosPage() {
         </button>
       </div>
 
-      {/* Botón nuevo usuario */}
-      <div className="mt-6 text-right">
+      {/* Botones */}
+      <div className="mt-6 flex flex-col sm:flex-row justify-end gap-3">
+        <label className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded flex items-center gap-2 cursor-pointer">
+          <Upload size={18} /> Carga masiva (Excel)
+          <input
+            type="file"
+            accept=".xlsx,.xls"
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files && e.target.files[0]) {
+                handleUploadExcel(e.target.files[0])
+              }
+            }}
+          />
+        </label>
         <button
           onClick={() => router.push('/dashboard/personas/formulario')}
           className="bg-[#7d4f2b] hover:bg-[#5e3c1f] text-white px-6 py-2 rounded"
@@ -395,55 +403,77 @@ export default function UsuariosPage() {
         </button>
       </div>
 
-      {/* Modal ver usuario */}
-      {selectedUser && (
+      {/* Modal resultado carga masiva */}
+      {uploadResult && (
         <div className="fixed inset-0 z-50 bg-black bg-opacity-40 flex items-center justify-center px-4">
-          <div className="bg-white rounded-lg shadow-md p-6 max-w-md w-full relative">
+          <div className="bg-white rounded-lg shadow-md p-6 max-w-lg w-full text-center relative">
             <button
-              onClick={cerrarModal}
+              onClick={() => setUploadResult(null)}
               className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
             >
               <X size={20} />
             </button>
+
             <h2 className="text-xl font-semibold mb-4 text-[#7d4f2b]">
-              Información del Usuario
+              Resultado de la carga masiva
             </h2>
+
+            <p className="text-sm text-gray-700 mb-2">
+              <strong>Status:</strong> {uploadResult.status}
+            </p>
+            <p className="text-sm text-gray-700 mb-2">
+              <strong>Insertados:</strong> {uploadResult.insertados}
+            </p>
+            <p className="text-sm text-gray-700 mb-4">
+              <strong>Total procesados:</strong> {uploadResult.total_procesados}
+            </p>
+
+            {uploadResult.errores && uploadResult.errores.length > 0 && (
+              <div className="text-left text-sm text-red-700 max-h-40 overflow-y-auto border-t pt-2">
+                <p className="font-semibold mb-2">
+                  Se encontraron {uploadResult.errores.length} errores:
+                </p>
+                <ul className="list-disc pl-5 space-y-1">
+                  {uploadResult.errores.map((err, idx) => (
+                    <li key={idx}>
+                      <strong>Fila {err.fila}</strong> (ID: {err.id}): {err.mensaje}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="mt-6">
+              <button
+                onClick={() => setUploadResult(null)}
+                className="bg-[#7d4f2b] text-white px-6 py-2 rounded hover:bg-[#5e3c1f]"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal ver usuario */}
+      {selectedUser && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-40 flex items-center justify-center px-4">
+          <div className="bg-white rounded-lg shadow-md p-6 max-w-md w-full relative">
+            <button onClick={cerrarModal} className="absolute top-2 right-2 text-gray-500 hover:text-gray-700">
+              <X size={20} />
+            </button>
+            <h2 className="text-xl font-semibold mb-4 text-[#7d4f2b]">Información del Usuario</h2>
             <div className="space-y-2 text-sm text-gray-700">
-              <p>
-                <strong>Nombre:</strong> {selectedUser.nombre}{' '}
-                {selectedUser.apellido}
-              </p>
-              <p>
-                <strong>Tipo de documento:</strong>{' '}
-                {enumDocumento[
-                  selectedUser.tipoDocumento as keyof typeof enumDocumento
-                ] || selectedUser.tipoDocumento}
-              </p>
-              <p>
-                <strong>Número:</strong> {selectedUser.id}
-              </p>
-              <p>
-                <strong>Nacimiento:</strong> {selectedUser.fechaNacimiento}
-              </p>
-              <p>
-                <strong>Sexo:</strong>{' '}
-                {enumSexo[
-                  selectedUser.sexo as keyof typeof enumSexo
-                ] || selectedUser.sexo}
-              </p>
-              <p>
-                <strong>Parcialidad:</strong>{' '}
-                {selectedUser.parcialidad ? selectedUser.parcialidad.nombre : '-'}
-              </p>
-              <p>
-                <strong>Familia: </strong>{selectedUser.idFamilia ?? '-'}
-              </p>
+              <p><strong>Nombre:</strong> {selectedUser.nombre} {selectedUser.apellido}</p>
+              <p><strong>Tipo de documento:</strong> {enumDocumento[selectedUser.tipoDocumento as keyof typeof enumDocumento] || selectedUser.tipoDocumento}</p>
+              <p><strong>Número:</strong> {selectedUser.id}</p>
+              <p><strong>Nacimiento:</strong> {selectedUser.fechaNacimiento}</p>
+              <p><strong>Sexo:</strong> {enumSexo[selectedUser.sexo as keyof typeof enumSexo] || selectedUser.sexo}</p>
+              <p><strong>Parcialidad:</strong> {selectedUser.parcialidad ? selectedUser.parcialidad.nombre : '-'}</p>
+              <p><strong>Familia:</strong> {selectedUser.idFamilia ?? '-'}</p>
             </div>
             <div className="mt-6 text-center">
-              <button
-                onClick={cerrarModal}
-                className="bg-[#7d4f2b] text-white px-5 py-2 rounded hover:bg-[#5e3c1f]"
-              >
+              <button onClick={cerrarModal} className="bg-[#7d4f2b] text-white px-5 py-2 rounded hover:bg-[#5e3c1f]">
                 Cerrar
               </button>
             </div>
@@ -457,22 +487,13 @@ export default function UsuariosPage() {
           <div className="bg-white rounded-lg shadow-md p-6 max-w-md w-full text-center relative">
             <p className="text-lg mb-6">
               ¿Está seguro de querer eliminar al usuario <br />
-              <strong>
-                {userToDelete.nombre} {userToDelete.apellido}
-              </strong>
-              ?
+              <strong>{userToDelete.nombre} {userToDelete.apellido}</strong>?
             </p>
             <div className="flex justify-center gap-4">
-              <button
-                onClick={eliminarUsuario}
-                className="bg-red-600 text-white px-5 py-2 rounded hover:bg-red-700"
-              >
+              <button onClick={eliminarUsuario} className="bg-red-600 text-white px-5 py-2 rounded hover:bg-red-700">
                 Sí, eliminar
               </button>
-              <button
-                onClick={cancelarEliminacion}
-                className="bg-gray-400 text-white px-5 py-2 rounded hover:bg-gray-500"
-              >
+              <button onClick={cancelarEliminacion} className="bg-gray-400 text-white px-5 py-2 rounded hover:bg-gray-500">
                 Cancelar
               </button>
             </div>

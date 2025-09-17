@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Trash, Search } from 'lucide-react'
+import { Trash, Search, Upload, X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
 
@@ -29,6 +29,19 @@ interface ParcialidadResponse {
   items: Parcialidad[]
 }
 
+interface UploadError {
+  fila: number
+  id: string
+  mensaje: string
+}
+
+interface UploadResponse {
+  status: string
+  insertados: number
+  total_procesados: number
+  errores: UploadError[]
+}
+
 export default function ParcialidadesPage() {
   const router = useRouter()
 
@@ -47,6 +60,9 @@ export default function ParcialidadesPage() {
 
   const [busqueda, setBusqueda] = useState('')
   const debouncedBusqueda = useDebounce(busqueda, 500)
+
+  // carga masiva
+  const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null)
 
   const fetchParcialidades = async () => {
     setLoading(true)
@@ -110,7 +126,29 @@ export default function ParcialidadesPage() {
 
   const cerrarModalExito = async () => {
     setMostrarModalExito(false)
-    await fetchParcialidades() // refresca la lista
+    await fetchParcialidades()
+  }
+
+  // subir excel
+  const handleUploadExcel = async (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    try {
+      const res = await apiFetch<UploadResponse>('/parcialidad/upload-excel', {
+        method: 'POST',
+        body: formData,
+      })
+      setUploadResult(res)
+      fetchParcialidades()
+    } catch {
+      setUploadResult({
+        status: 'error',
+        insertados: 0,
+        total_procesados: 0,
+        errores: [{ fila: 0, id: '-', mensaje: 'Error al subir el archivo' }],
+      })
+    }
   }
 
   return (
@@ -198,7 +236,21 @@ export default function ParcialidadesPage() {
         </button>
       </div>
 
-      <div className="flex justify-end mt-6">
+      {/* Botones */}
+      <div className="flex justify-end mt-6 gap-3">
+        <label className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded flex items-center gap-2 cursor-pointer">
+          <Upload size={18} /> Carga masiva (Excel)
+          <input
+            type="file"
+            accept=".xlsx,.xls"
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files && e.target.files[0]) {
+                handleUploadExcel(e.target.files[0])
+              }
+            }}
+          />
+        </label>
         <button
           onClick={() => router.push('/dashboard/parcialidades/nuevo')}
           className="bg-[#7d4f2b] hover:bg-[#5e3c1f] text-white px-6 py-2 rounded"
@@ -206,6 +258,58 @@ export default function ParcialidadesPage() {
           Nueva parcialidad
         </button>
       </div>
+
+      {/* Modal resultado carga masiva */}
+      {uploadResult && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-40 flex items-center justify-center px-4">
+          <div className="bg-white rounded-lg shadow-md p-6 max-w-lg w-full text-center relative">
+            <button
+              onClick={() => setUploadResult(null)}
+              className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+            >
+              <X size={20} />
+            </button>
+
+            <h2 className="text-xl font-semibold mb-4 text-[#7d4f2b]">
+              Resultado de la carga masiva
+            </h2>
+
+            <p className="text-sm text-gray-700 mb-2">
+              <strong>Status:</strong> {uploadResult.status}
+            </p>
+            <p className="text-sm text-gray-700 mb-2">
+              <strong>Insertados:</strong> {uploadResult.insertados}
+            </p>
+            <p className="text-sm text-gray-700 mb-4">
+              <strong>Total procesados:</strong> {uploadResult.total_procesados}
+            </p>
+
+            {uploadResult.errores && uploadResult.errores.length > 0 && (
+              <div className="text-left text-sm text-red-700 max-h-40 overflow-y-auto border-t pt-2">
+                <p className="font-semibold mb-2">
+                  Se encontraron {uploadResult.errores.length} errores:
+                </p>
+                <ul className="list-disc pl-5 space-y-1">
+                  {uploadResult.errores.map((err, idx) => (
+                    <li key={idx}>
+                      <strong>Fila {err.fila}</strong> (ID: {err.id}): {err.mensaje}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="mt-6">
+              <button
+                onClick={() => setUploadResult(null)}
+                className="bg-[#7d4f2b] text-white px-6 py-2 rounded hover:bg-[#5e3c1f]"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal confirmación */}
       {mostrarModalConfirmacion && parcialidadSeleccionada && (
@@ -224,7 +328,7 @@ export default function ParcialidadesPage() {
               </button>
               <button
                 onClick={cancelarEliminacion}
-                className="bg-[#b85c38] text-white px-5 py-2 rounded hover:bg-[#96492d]"
+                className="bg-gray-400 text-white px-5 py-2 rounded hover:bg-gray-500"
               >
                 Cancelar
               </button>
