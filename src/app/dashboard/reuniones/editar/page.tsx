@@ -78,6 +78,27 @@ export default function FormularioReunionPage() {
     return () => clearInterval(interval)
   }, [reunionId])
 
+  const descargarReporte = async () => {
+    if (!reunionId) return
+    try {
+      const blob = await apiFetch<Blob>(
+        `/reportes/reporte/asistencia/${reunionId}`,
+        { responseType: 'blob' }
+      )
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `reporte_asistencia_${reunionId}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Error descargando reporte', err)
+      alert('No se pudo descargar el reporte')
+    }
+  }
+
   // === TOKEN desde API ===
   const generarToken = async () => {
     if (!reunionId) return
@@ -132,18 +153,15 @@ export default function FormularioReunionPage() {
     if (!reunionId) return
     try {
       if (current) {
-        // Quitar asistencia
         await apiFetch(`/asistencia/asistencia/${reunionId}/${personaId}`, {
           method: 'DELETE',
         })
       } else {
-        // Asignar asistencia
         await apiFetch(`/asistencia/asistencia/assign/${reunionId}`, {
           method: 'POST',
           body: JSON.stringify({ persona_id: personaId }),
         })
       }
-      // actualizar en frontend
       setUsuarios(prev =>
         prev.map(u =>
           u.Numero_documento === personaId
@@ -162,6 +180,16 @@ export default function FormularioReunionPage() {
       <h1 className="text-2xl sm:text-3xl font-semibold mb-6 text-[#333]">
         Editar reunión
       </h1>
+
+      {/* Botón reporte */}
+      <div className="mb-6 flex justify-end">
+        <button
+          onClick={descargarReporte}
+          className="bg-[#7d4f2b] text-white px-6 py-2 rounded hover:bg-[#5e3c1f]"
+        >
+          Descargar reporte de asistencia
+        </button>
+      </div>
 
       {/* Datos básicos */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">

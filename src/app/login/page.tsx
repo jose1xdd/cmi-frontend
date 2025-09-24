@@ -90,7 +90,7 @@ export default function LoginPage() {
   return (
     <main
       className="min-h-screen flex items-center justify-center bg-cover bg-center px-4"
-      style={{ backgroundImage: "url('/fondocomunidad.png')" }}
+      style={{ backgroundImage: "url('/fondocomunidad.jpg')" }}
     >
       <div className="absolute inset-0 bg-black/50 z-0" />
       <div className="relative z-10 flex flex-col md:flex-row gap-8 max-w-4xl w-full">

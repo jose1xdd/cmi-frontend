@@ -48,7 +48,7 @@ export default function Home() {
       {/* Encabezado */}
       <header
         className="relative h-72 w-full bg-cover bg-center"
-        style={{ backgroundImage: "url('/quillacinga2.png')" }}
+        style={{ backgroundImage: "url('/fondocomunidad.jpg')" }}
       >
         <div className="absolute inset-0 bg-black/40 z-0" />
         <div className="relative z-10 h-full flex flex-col justify-center items-center">

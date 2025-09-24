@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Trash, Pencil, Plus } from 'lucide-react'
+import { Trash, Plus, Eye } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
 
@@ -153,7 +153,7 @@ export default function ReunionesAdmin() {
                         onClick={() => router.push(`/dashboard/reuniones/editar?id=${reunion.id}`)}
                         className="text-[#7d4f2b] hover:text-blue-600"
                       >
-                        <Pencil size={18} />
+                        <Eye size={18} />
                       </button>
                       <button
                         onClick={() => confirmarEliminacion(reunion)}
