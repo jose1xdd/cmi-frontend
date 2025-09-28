@@ -1,11 +1,35 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Pencil, CheckSquare } from 'lucide-react'
+import { Pencil, CheckSquare, HelpCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
 import { useAuth } from '@/context/AuthContext'
 import { jwtDecode } from 'jwt-decode'
+
+/* Tooltip reutilizable */
+function Tooltip({
+  text,
+  color = '#7d4f2b',
+  responsive = false,
+}: {
+  text: string
+  color?: string
+  responsive?: boolean
+}) {
+  return (
+    <div className="relative group inline-block ml-1">
+      <HelpCircle className="w-4 h-4 cursor-pointer" style={{ color }} />
+      <div
+        className={`absolute hidden group-hover:block top-[120%] left-1/2 -translate-x-1/2
+                    bg-black text-white text-xs rounded px-3 py-2 shadow-md text-left whitespace-normal z-50
+                    ${responsive ? 'max-w-[80vw] sm:max-w-xs break-words' : 'min-w-[200px] max-w-xs'}`}
+      >
+        {text}
+      </div>
+    </div>
+  )
+}
 
 interface Reunion {
   id: number
@@ -106,15 +130,17 @@ export default function ReunionesUsuario() {
 
   return (
     <div>
-      <h1 className="text-2xl sm:text-3xl font-semibold mb-8 text-[#333]">
+      <h1 className="text-2xl sm:text-3xl font-semibold mb-8 text-[#333] flex items-center">
         Reuniones
+        <Tooltip text="Aquí puedes ver todas las reuniones y registrar tu asistencia." />
       </h1>
 
       {/* Filtro por fecha */}
-      <div className="flex justify-end mb-4">
+      <div className="flex justify-start mb-4">
         <div>
-          <label className="block text-sm text-gray-700 mb-1">
+          <label className="block text-sm text-gray-700 mb-1 flex items-center">
             Filtrar por fecha
+            <Tooltip text="Selecciona una fecha para ver solo reuniones de ese día." />
           </label>
           <input
             type="date"
@@ -139,7 +165,10 @@ export default function ReunionesUsuario() {
                 <th className="px-4 py-2 text-center">Hora Inicio</th>
                 <th className="px-4 py-2 text-center">Hora Fin</th>
                 <th className="px-4 py-2 text-center">Fecha</th>
-                <th className="px-4 py-2 text-center">Asistencia</th>
+                <th className="px-4 py-2 text-center flex items-center justify-center">
+                  Asistencia
+                  <Tooltip text="✔️ indica asistencia registrada. ✏️ permite marcar asistencia." responsive />
+                </th>
               </tr>
             </thead>
             <tbody>

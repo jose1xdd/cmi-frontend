@@ -1,9 +1,33 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Trash, Plus, Eye } from 'lucide-react'
+import { Trash, Plus, Eye, HelpCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
+
+/* Tooltip reutilizable */
+function Tooltip({
+  text,
+  color = '#7d4f2b',
+  responsive = false,
+}: {
+  text: string
+  color?: string
+  responsive?: boolean
+}) {
+  return (
+    <div className="relative group inline-block ml-1">
+      <HelpCircle className="w-4 h-4 cursor-pointer" style={{ color }} />
+      <div
+        className={`absolute hidden group-hover:block top-[120%] left-1/2 -translate-x-1/2
+                    bg-black text-white text-xs rounded px-3 py-2 shadow-md text-left whitespace-normal z-50
+                    ${responsive ? 'max-w-[80vw] sm:max-w-xs break-words' : 'min-w-[200px] max-w-xs'}`}
+      >
+        {text}
+      </div>
+    </div>
+  )
+}
 
 interface Reunion {
   id: number
@@ -86,13 +110,18 @@ export default function ReunionesAdmin() {
 
   return (
     <div>
-      <h1 className="text-2xl sm:text-3xl font-semibold mb-4 text-[#333]">Reuniones</h1>
+      <h1 className="text-2xl sm:text-3xl font-semibold mb-4 text-[#333] flex items-center">
+        Reuniones
+        <Tooltip text="En esta sección puedes gestionar todas las reuniones creadas en el sistema." />
+      </h1>
 
       {/* Filtros */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between mb-4">
         <div className="flex gap-4">
           <div>
-            <label className="block text-sm text-gray-700 mb-1">Filtrar por título</label>
+            <label className="block text-sm text-gray-700 mb-1 flex items-center">
+              Filtrar por título <Tooltip text="Busca reuniones por coincidencia en el título." responsive />
+            </label>
             <input
               type="text"
               value={tituloFiltro}
@@ -102,7 +131,9 @@ export default function ReunionesAdmin() {
             />
           </div>
           <div>
-            <label className="block text-sm text-gray-700 mb-1">Filtrar por fecha</label>
+            <label className="block text-sm text-gray-700 mb-1 flex items-center">
+              Filtrar por fecha <Tooltip text="Muestra únicamente reuniones de la fecha seleccionada." responsive />
+            </label>
             <input
               type="date"
               value={fechaFiltro}
@@ -117,6 +148,7 @@ export default function ReunionesAdmin() {
             className="bg-[#7d4f2b] hover:bg-[#5e3c1f] text-white px-6 py-2 rounded flex items-center gap-2"
           >
             <Plus size={18} /> Nueva reunión
+            <Tooltip text="Crea una nueva reunión en el sistema." />
           </button>
         </div>
       </div>
@@ -151,13 +183,13 @@ export default function ReunionesAdmin() {
                     <td className="px-4 py-2 flex justify-center gap-2">
                       <button
                         onClick={() => router.push(`/dashboard/reuniones/editar?id=${reunion.id}`)}
-                        className="text-[#7d4f2b] hover:text-blue-600"
+                        className="text-[#7d4f2b] hover:text-blue-600 flex items-center"
                       >
                         <Eye size={18} />
                       </button>
                       <button
                         onClick={() => confirmarEliminacion(reunion)}
-                        className="text-[#7d4f2b] hover:text-red-600"
+                        className="text-[#7d4f2b] hover:text-red-600 flex items-center"
                       >
                         <Trash size={18} />
                       </button>

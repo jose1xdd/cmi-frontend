@@ -9,6 +9,7 @@ import {
   enumSexo,
   enumParentesco,
 } from '@/constants/enums'
+import { HelpCircle } from 'lucide-react'
 
 interface AdminData {
   nombre: string
@@ -40,6 +41,17 @@ interface Parcialidad {
 interface Familia {
   id: number
   integrantes: number
+}
+
+function Tooltip({ text }: { text: string }) {
+  return (
+    <div className="relative group inline-block">
+      <HelpCircle className="w-4 h-4 text-[#7d4f2b] ml-1 cursor-pointer" />
+      <div className="absolute hidden group-hover:block bg-black text-white text-xs rounded px-2 py-1 bottom-full mb-1 w-48 z-10">
+        {text}
+      </div>
+    </div>
+  )
 }
 
 export default function PerfilAdmin({ data }: PerfilAdminProps) {
@@ -229,7 +241,10 @@ export default function PerfilAdmin({ data }: PerfilAdminProps) {
 
           {/* Escolaridad */}
           <div>
-            <label className="block text-sm text-[#7d4f2b] mb-1">Escolaridad</label>
+            <label className="block text-sm text-[#7d4f2b] mb-1 flex items-center">
+              Escolaridad
+              <Tooltip text="Seleccione el nivel educativo alcanzado" />
+            </label>
             <select
               name="escolaridad"
               value={form.escolaridad}
@@ -246,7 +261,10 @@ export default function PerfilAdmin({ data }: PerfilAdminProps) {
 
           {/* Profesión */}
           <div>
-            <label className="block text-sm text-[#7d4f2b] mb-1">Profesión</label>
+            <label className="block text-sm text-[#7d4f2b] mb-1 flex items-center">
+              Profesión
+              <Tooltip text="Escriba su profesión u ocupación principal" />
+            </label>
             <input
               name="profesion"
               value={form.profesion}
@@ -257,7 +275,10 @@ export default function PerfilAdmin({ data }: PerfilAdminProps) {
 
           {/* Parentesco */}
           <div>
-            <label className="block text-sm text-[#7d4f2b] mb-1">Parentesco</label>
+            <label className="block text-sm text-[#7d4f2b] mb-1 flex items-center">
+              Parentesco
+              <Tooltip text="Seleccione El parentesco que tiene en su familia, Ejemplo: Eres el Padre de familia, Hijo" />
+            </label>
             <select
               name="parentesco"
               value={form.parentesco}
@@ -274,7 +295,10 @@ export default function PerfilAdmin({ data }: PerfilAdminProps) {
 
           {/* Familia */}
           <div>
-            <label className="block text-sm text-[#7d4f2b] mb-1">Familia</label>
+            <label className="block text-sm text-[#7d4f2b] mb-1 flex items-center">
+              Familia
+              <Tooltip text="Seleccione la familia a la que pertenece este usuario" />
+            </label>
             <select
               name="familia"
               value={form.familia}
@@ -284,7 +308,7 @@ export default function PerfilAdmin({ data }: PerfilAdminProps) {
               <option value="">Seleccione familia</option>
               {familias.map((f) => (
                 <option key={f.id} value={f.id}>
-                  {`${f.id}`}
+                  {`Familia ${f.id}`}
                 </option>
               ))}
             </select>
@@ -292,7 +316,10 @@ export default function PerfilAdmin({ data }: PerfilAdminProps) {
 
           {/* Parcialidad */}
           <div>
-            <label className="block text-sm text-[#7d4f2b] mb-1">Parcialidad</label>
+            <label className="block text-sm text-[#7d4f2b] mb-1 flex items-center">
+              Parcialidad
+              <Tooltip text="Seleccione la parcialidad correspondiente" />
+            </label>
             <select
               name="parcialidad"
               value={form.parcialidad}
@@ -319,9 +346,9 @@ export default function PerfilAdmin({ data }: PerfilAdminProps) {
           </button>
           <button
             onClick={() => router.push('/dashboard/perfil/recuperar')}
-            className="bg-[#9c5a25] hover:bg-[#7b4317] text-white px-6 py-2 rounded"
+            className="bg-[#7d4f2b] hover:bg-[#7b4317] text-white px-6 py-2 rounded"
           >
-            Recuperar contraseña
+            Cambiar contraseña
           </button>
         </div>
       </div>

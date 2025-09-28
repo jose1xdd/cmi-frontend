@@ -1,9 +1,33 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Trash, Upload, X } from 'lucide-react'
+import { Trash, Upload, X, HelpCircle, Download } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
+
+/* Tooltip reutilizable */
+function Tooltip({
+  text,
+  color = '#7d4f2b',
+  responsive = false,
+}: {
+  text: string
+  color?: string
+  responsive?: boolean
+}) {
+  return (
+    <div className="relative group inline-block ml-1">
+      <HelpCircle className="w-4 h-4 cursor-pointer" style={{ color }} />
+      <div
+        className={`absolute hidden group-hover:block top-[120%] left-1/2 -translate-x-1/2
+                    bg-black text-white text-xs rounded px-3 py-2 shadow-md text-left whitespace-normal z-50
+                    ${responsive ? 'max-w-[80vw] sm:max-w-xs break-words' : 'min-w-[200px] max-w-xs'}`}
+      >
+        {text}
+      </div>
+    </div>
+  )
+}
 
 interface Familia {
   id: number
@@ -131,8 +155,9 @@ export default function FamiliaPage() {
 
   return (
     <div>
-      <h1 className="text-2xl sm:text-3xl font-semibold mb-4 text-[#333]">
+      <h1 className="text-2xl sm:text-3xl font-semibold mb-4 text-[#333] flex items-center">
         Familias
+        <Tooltip text="Aquí puedes gestionar las familias registradas en el sistema." />
       </h1>
 
       {/* Tabla */}
@@ -170,9 +195,10 @@ export default function FamiliaPage() {
                     <td className="px-4 py-2 flex justify-center">
                       <button
                         onClick={() => confirmarEliminacion(familia)}
-                        className="text-[#7d4f2b] hover:text-red-600"
+                        className="text-[#7d4f2b] hover:text-red-600 flex items-center"
                       >
                         <Trash size={18} />
+                        <Tooltip text="Eliminar familia seleccionada." />
                       </button>
                     </td>
                   </tr>
@@ -208,6 +234,7 @@ export default function FamiliaPage() {
       <div className="flex justify-end mt-6 gap-3">
         <label className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded flex items-center gap-2 cursor-pointer">
           <Upload size={18} /> Carga masiva (Excel)
+          <Tooltip text="Sube un archivo Excel para registrar varias familias de una vez." color="white" />
           <input
             type="file"
             accept=".xlsx,.xls"
@@ -219,6 +246,13 @@ export default function FamiliaPage() {
             }}
           />
         </label>
+        <button
+          onClick={() => window.open('/plantillas/familias.xlsx', '_blank')}
+          className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded flex items-center gap-2"
+        >
+          <Download size={18} /> Descargar formato
+          <Tooltip text="Descarga la plantilla de Excel para registrar familias." color="white" />
+        </button>
         <button
           onClick={() => router.push('/dashboard/familias/nuevo')}
           className="bg-[#7d4f2b] hover:bg-[#5e3c1f] text-white px-6 py-2 rounded"

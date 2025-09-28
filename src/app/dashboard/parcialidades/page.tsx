@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Trash, Search, Upload, X } from 'lucide-react'
+import { Trash, Search, Upload, X, Download, HelpCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
 
@@ -15,6 +15,30 @@ function useDebounce<T>(value: T, delay: number): T {
   }, [value, delay])
 
   return debouncedValue
+}
+
+/* Tooltip reutilizable */
+function Tooltip({
+  text,
+  color = '#7d4f2b',
+  responsive = false,
+}: {
+  text: string
+  color?: string
+  responsive?: boolean
+}) {
+  return (
+    <div className="relative group inline-block ml-1">
+      <HelpCircle className="w-4 h-4 cursor-pointer" style={{ color }} />
+      <div
+        className={`absolute hidden group-hover:block top-[120%] left-1/2 -translate-x-1/2
+                    bg-black text-white text-xs rounded px-3 py-2 shadow-md text-left whitespace-normal z-50
+                    ${responsive ? 'max-w-[80vw] sm:max-w-xs break-words' : 'min-w-[200px] max-w-xs'}`}
+      >
+        {text}
+      </div>
+    </div>
+  )
 }
 
 interface Parcialidad {
@@ -153,12 +177,13 @@ export default function ParcialidadesPage() {
 
   return (
     <div className="p-4 sm:p-8">
-      <h1 className="text-2xl sm:text-3xl font-semibold mb-6 text-[#333]">
+      <h1 className="text-2xl sm:text-3xl font-semibold mb-6 text-[#333] flex items-center">
         Parcialidades
+        <Tooltip text="Aquí puedes gestionar las parcialidades registradas en el sistema." />
       </h1>
 
       {/* Buscador */}
-      <div className="relative w-full sm:max-w-xs mb-4">
+      <div className="relative w-full sm:max-w-xs mb-4 flex items-center">
         <Search className="absolute left-3 top-2.5 text-[#7d4f2b]" size={18} />
         <input
           type="text"
@@ -167,6 +192,7 @@ export default function ParcialidadesPage() {
           onChange={(e) => setBusqueda(e.target.value)}
           className="w-full pl-10 pr-4 py-2 border border-[#7d4f2b] rounded text-sm text-gray-700"
         />
+        <Tooltip text="Busca parcialidades escribiendo el nombre." />
       </div>
 
       {/* Tabla */}
@@ -224,9 +250,7 @@ export default function ParcialidadesPage() {
         >
           Anterior
         </button>
-        <span>
-          Página {page} de {totalPages}
-        </span>
+        <span>Página {page} de {totalPages}</span>
         <button
           disabled={page >= totalPages}
           onClick={() => setPage((prev) => prev + 1)}
@@ -240,6 +264,7 @@ export default function ParcialidadesPage() {
       <div className="flex justify-end mt-6 gap-3">
         <label className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded flex items-center gap-2 cursor-pointer">
           <Upload size={18} /> Carga masiva (Excel)
+          <Tooltip text="Sube un archivo Excel para registrar varias parcialidades a la vez." color="white" />
           <input
             type="file"
             accept=".xlsx,.xls"
@@ -252,12 +277,21 @@ export default function ParcialidadesPage() {
           />
         </label>
         <button
+          onClick={() => window.open('/plantillas/parcialidades.xlsx', '_blank')}
+          className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded flex items-center gap-2"
+        >
+          <Download size={18} /> Descargar formato
+          <Tooltip text="Descarga la plantilla de Excel para registrar parcialidades." color="white" />
+        </button>
+        <button
           onClick={() => router.push('/dashboard/parcialidades/nuevo')}
           className="bg-[#7d4f2b] hover:bg-[#5e3c1f] text-white px-6 py-2 rounded"
         >
           Nueva parcialidad
         </button>
       </div>
+
+      {/* === Modales existentes se mantienen tal cual === */}
 
       {/* Modal resultado carga masiva */}
       {uploadResult && (

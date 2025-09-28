@@ -3,6 +3,7 @@
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api'
+import { HelpCircle } from 'lucide-react'
 import {
   enumEscolaridad,
   enumDocumento,
@@ -10,7 +11,7 @@ import {
   enumParentesco,
 } from '@/constants/enums'
 
-interface Usuario {
+interface Persona {
   nombre: string
   apellido: string
   tipoDocumento: string
@@ -36,7 +37,7 @@ interface Familia {
   integrantes: number
 }
 
-export default function FormularioUsuarioPage() {
+export default function FormularioPersonaPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
 
@@ -47,7 +48,7 @@ export default function FormularioUsuarioPage() {
   const [parcialidades, setParcialidades] = useState<Parcialidad[]>([])
   const [familias, setFamilias] = useState<Familia[]>([])
 
-  const [data, setData] = useState<Usuario>({
+  const [data, setData] = useState<Persona>({
     nombre: '',
     apellido: '',
     tipoDocumento: '',
@@ -98,7 +99,7 @@ export default function FormularioUsuarioPage() {
             parcialidad: res.parcialidad?.id?.toString() || '',
           })
         )
-        .catch(() => console.error('Error cargando usuario'))
+        .catch(() => console.error('Error cargando persona'))
     }
   }, [esEdicion, idPersona])
 
@@ -113,14 +114,14 @@ export default function FormularioUsuarioPage() {
       .catch(() => setFamilias([]))
   }, [])
 
-  const handleInputChange = (key: keyof Usuario, value: string) => {
+  const handleInputChange = (key: keyof Persona, value: string) => {
     setData((prev) => ({ ...prev, [key]: value }))
   }
 
   const handleGuardar = async () => {
     try {
       const payload = {
-        id: data.identificacion, // obligatorio en creación
+        id: data.identificacion,
         tipoDocumento: data.tipoDocumento,
         nombre: data.nombre,
         apellido: data.apellido,
@@ -149,7 +150,7 @@ export default function FormularioUsuarioPage() {
 
       setShowModal(true)
     } catch {
-      alert('Error al guardar el usuario')
+      alert('Error al guardar la persona')
     }
   }
 
@@ -158,17 +159,34 @@ export default function FormularioUsuarioPage() {
     router.push('/dashboard/personas')
   }
 
+  function Tooltip({ text, color = '#7d4f2b' }: { text: string; color?: string }) {
+    return (
+      <div className="relative group inline-block ml-1">
+        <HelpCircle className="w-4 h-4 cursor-pointer" style={{ color }} />
+        <div
+          className="absolute hidden group-hover:block top-full left-1/2 -translate-x-1/2 mt-2
+                    bg-black text-white text-xs rounded px-3 py-2 shadow-md 
+                    min-w-[200px] max-w-sm text-left whitespace-normal z-20"
+        >
+          {text}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="w-full px-4 pt-5">
       <div className="max-w-5xl mx-auto space-y-8">
         <h2 className="text-2xl font-bold text-center text-[#7d4f2b]">
-          {esEdicion ? 'Editar usuario' : 'Crear nuevo usuario'}
+          {esEdicion ? 'Editar persona' : 'Crear nueva persona'}
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Tipo Documento */}
           <div>
-            <label className="block text-sm text-[#7d4f2b] mb-1">Tipo Documento</label>
+            <label className="block text-sm text-[#7d4f2b] mb-1 flex items-center">
+              Tipo Documento <Tooltip text="Selecciona el tipo de documento de la persona." />
+            </label>
             <select
               value={data.tipoDocumento}
               onChange={(e) => handleInputChange('tipoDocumento', e.target.value)}
@@ -185,7 +203,9 @@ export default function FormularioUsuarioPage() {
 
           {/* Identificación */}
           <div>
-            <label className="block text-sm text-[#7d4f2b] mb-1">Identificación</label>
+            <label className="block text-sm text-[#7d4f2b] mb-1 flex items-center">
+              Identificación <Tooltip text="Número único de identificación. En edición no puede cambiarse." />
+            </label>
             <input
               value={data.identificacion}
               onChange={(e) => handleInputChange('identificacion', e.target.value)}
@@ -198,7 +218,9 @@ export default function FormularioUsuarioPage() {
 
           {/* Nombre */}
           <div>
-            <label className="block text-sm text-[#7d4f2b] mb-1">Nombre</label>
+            <label className="block text-sm text-[#7d4f2b] mb-1 flex items-center">
+              Nombre <Tooltip text="Escribe el nombre completo de la persona." />
+            </label>
             <input
               value={data.nombre}
               onChange={(e) => handleInputChange('nombre', e.target.value)}
@@ -208,7 +230,9 @@ export default function FormularioUsuarioPage() {
 
           {/* Apellido */}
           <div>
-            <label className="block text-sm text-[#7d4f2b] mb-1">Apellido</label>
+            <label className="block text-sm text-[#7d4f2b] mb-1 flex items-center">
+              Apellido <Tooltip text="Escribe los apellidos de la persona." />
+            </label>
             <input
               value={data.apellido}
               onChange={(e) => handleInputChange('apellido', e.target.value)}
@@ -218,7 +242,9 @@ export default function FormularioUsuarioPage() {
 
           {/* Fecha nacimiento */}
           <div>
-            <label className="block text-sm text-[#7d4f2b] mb-1">Fecha nacimiento</label>
+            <label className="block text-sm text-[#7d4f2b] mb-1 flex items-center">
+              Fecha nacimiento <Tooltip text="Selecciona la fecha de nacimiento de la persona." />
+            </label>
             <input
               type="date"
               value={data.nacimiento}
@@ -229,7 +255,9 @@ export default function FormularioUsuarioPage() {
 
           {/* Sexo */}
           <div>
-            <label className="block text-sm text-[#7d4f2b] mb-1">Sexo</label>
+            <label className="block text-sm text-[#7d4f2b] mb-1 flex items-center">
+              Sexo <Tooltip text="Selecciona el sexo de la persona." />
+            </label>
             <select
               value={data.sexo}
               onChange={(e) => handleInputChange('sexo', e.target.value)}
@@ -246,7 +274,9 @@ export default function FormularioUsuarioPage() {
 
           {/* Dirección */}
           <div className="md:col-span-2">
-            <label className="block text-sm text-[#7d4f2b] mb-1">Dirección</label>
+            <label className="block text-sm text-[#7d4f2b] mb-1 flex items-center">
+              Dirección <Tooltip text="Dirección de residencia de la persona." />
+            </label>
             <input
               value={data.direccion}
               onChange={(e) => handleInputChange('direccion', e.target.value)}
@@ -256,7 +286,9 @@ export default function FormularioUsuarioPage() {
 
           {/* Teléfono */}
           <div>
-            <label className="block text-sm text-[#7d4f2b] mb-1">Teléfono</label>
+            <label className="block text-sm text-[#7d4f2b] mb-1 flex items-center">
+              Teléfono <Tooltip text="Número de contacto de la persona." />
+            </label>
             <input
               value={data.telefono}
               onChange={(e) => handleInputChange('telefono', e.target.value)}
@@ -266,7 +298,9 @@ export default function FormularioUsuarioPage() {
 
           {/* Escolaridad */}
           <div>
-            <label className="block text-sm text-[#7d4f2b] mb-1">Escolaridad</label>
+            <label className="block text-sm text-[#7d4f2b] mb-1 flex items-center">
+              Escolaridad <Tooltip text="Nivel de estudios alcanzado por la persona." />
+            </label>
             <select
               value={data.escolaridad}
               onChange={(e) => handleInputChange('escolaridad', e.target.value)}
@@ -283,7 +317,9 @@ export default function FormularioUsuarioPage() {
 
           {/* Profesión */}
           <div>
-            <label className="block text-sm text-[#7d4f2b] mb-1">Profesión</label>
+            <label className="block text-sm text-[#7d4f2b] mb-1 flex items-center">
+              Profesión <Tooltip text="Profesión u ocupación principal de la persona." />
+            </label>
             <input
               value={data.profesion}
               onChange={(e) => handleInputChange('profesion', e.target.value)}
@@ -293,7 +329,9 @@ export default function FormularioUsuarioPage() {
 
           {/* Parentesco */}
           <div>
-            <label className="block text-sm text-[#7d4f2b] mb-1">Parentesco</label>
+            <label className="block text-sm text-[#7d4f2b] mb-1 flex items-center">
+              Parentesco <Tooltip text="Relación de la persona con la familia registrada (padre, madre, hijo, etc.)." />
+            </label>
             <select
               value={data.parentesco}
               onChange={(e) => handleInputChange('parentesco', e.target.value)}
@@ -310,7 +348,9 @@ export default function FormularioUsuarioPage() {
 
           {/* Familia */}
           <div>
-            <label className="block text-sm text-[#7d4f2b] mb-1">Familia</label>
+            <label className="block text-sm text-[#7d4f2b] mb-1 flex items-center">
+              Familia <Tooltip text="Selecciona la familia a la que pertenece esta persona." />
+            </label>
             <select
               value={data.familia}
               onChange={(e) => handleInputChange('familia', e.target.value)}
@@ -327,7 +367,9 @@ export default function FormularioUsuarioPage() {
 
           {/* Parcialidad */}
           <div>
-            <label className="block text-sm text-[#7d4f2b] mb-1">Parcialidad</label>
+            <label className="block text-sm text-[#7d4f2b] mb-1 flex items-center">
+              Parcialidad <Tooltip text="Selecciona la parcialidad o comunidad de la persona." />
+            </label>
             <select
               value={data.parcialidad}
               onChange={(e) => handleInputChange('parcialidad', e.target.value)}
@@ -348,7 +390,7 @@ export default function FormularioUsuarioPage() {
             onClick={handleGuardar}
             className="bg-[#7d4f2b] text-white px-6 py-2 rounded hover:bg-[#5e3c1f]"
           >
-            {esEdicion ? 'Actualizar usuario' : 'Guardar usuario'}
+            {esEdicion ? 'Actualizar persona' : 'Guardar persona'}
           </button>
         </div>
       </div>
@@ -359,8 +401,8 @@ export default function FormularioUsuarioPage() {
           <div className="bg-white px-8 py-6 rounded shadow-md w-80 text-center">
             <p className="text-gray-800 mb-4">
               {esEdicion
-                ? 'Usuario actualizado con éxito'
-                : 'Usuario registrado con éxito'}
+                ? 'Persona actualizada con éxito'
+                : 'Persona registrada con éxito'}
             </p>
             <button
               onClick={closeModal}

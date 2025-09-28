@@ -6,7 +6,6 @@ import { apiFetch } from '@/lib/api'
 
 interface UsuarioSistema {
   email: string
-  password?: string
   personaId: string
   rol: 'admin' | 'usuario'
 }
@@ -34,7 +33,6 @@ export default function FormularioUsuarioSistemaPage() {
   const [modalMessage, setModalMessage] = useState<string>('')
   const [data, setData] = useState<UsuarioSistema>({
     email: '',
-    password: '',
     personaId: '',
     rol: 'usuario',
   })
@@ -49,7 +47,6 @@ export default function FormularioUsuarioSistemaPage() {
         .then((res) =>
           setData({
             email: res.email,
-            password: '',
             personaId: res.personaId,
             rol: res.rol,
           })
@@ -106,7 +103,11 @@ export default function FormularioUsuarioSistemaPage() {
       } else {
         response = await apiFetch<ApiResponse>('/create', {
           method: 'POST',
-          body: JSON.stringify(data),
+          body: JSON.stringify({
+            email: data.email,
+            personaId: data.personaId,
+            rol: data.rol,
+          }),
         })
       }
 
@@ -145,19 +146,6 @@ export default function FormularioUsuarioSistemaPage() {
               className="w-full border border-[#7d4f2b] rounded px-3 py-2"
             />
           </div>
-
-          {/* Password → solo en creación */}
-          {!esEdicion && (
-            <div>
-              <label className="block text-sm text-[#7d4f2b] mb-1">Password</label>
-              <input
-                type="password"
-                value={data.password}
-                onChange={(e) => handleInputChange('password', e.target.value)}
-                className="w-full border border-[#7d4f2b] rounded px-3 py-2"
-              />
-            </div>
-          )}
 
           {/* PersonaId → solo en creación */}
           <div>

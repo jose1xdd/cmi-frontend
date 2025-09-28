@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Trash, Search, Pencil, X } from 'lucide-react'
+import { Trash, Search, Pencil, X, HelpCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
 
@@ -18,6 +18,22 @@ interface UsuariosSistemaResponse {
   items: UsuarioSistema[]
 }
 
+// Tooltip genérico (mejorado)
+function Tooltip({ text }: { text: string }) {
+  return (
+    <div className="relative group inline-block">
+      <HelpCircle className="w-4 h-4 text-[#7d4f2b] ml-1 cursor-pointer" />
+      <div
+        className="absolute hidden group-hover:block top-full left-1/2 -translate-x-1/2 mt-2
+                   bg-black text-white text-xs rounded px-3 py-2 shadow-md 
+                   min-w-[200px] max-w-sm text-left whitespace-normal z-20"
+      >
+        {text}
+      </div>
+    </div>
+  )
+}
+
 export default function UsuariosSistemaPage() {
   const router = useRouter()
 
@@ -31,7 +47,10 @@ export default function UsuariosSistemaPage() {
   // eliminar: estados de modal/resultado
   const [userToDelete, setUserToDelete] = useState<UsuarioSistema | null>(null)
   const [deletingEmail, setDeletingEmail] = useState<string | null>(null)
-  const [resultModal, setResultModal] = useState<{ success: boolean; message: string } | null>(null)
+  const [resultModal, setResultModal] = useState<{
+    success: boolean
+    message: string
+  } | null>(null)
 
   const fetchUsuarios = async () => {
     setLoading(true)
@@ -49,7 +68,9 @@ export default function UsuariosSistemaPage() {
         }
       }
 
-      const data = await apiFetch<UsuariosSistemaResponse>(`/?${params.toString()}`)
+      const data = await apiFetch<UsuariosSistemaResponse>(
+        `/?${params.toString()}`
+      )
       setUsuarios(data.items)
       setTotalPages(data.total_pages || 1)
     } catch (err) {
@@ -64,7 +85,9 @@ export default function UsuariosSistemaPage() {
   }, [page, busqueda])
 
   const handleEditar = (email: string) => {
-    router.push(`/dashboard/usuarios/formulario?email=${encodeURIComponent(email)}`)
+    router.push(
+      `/dashboard/usuarios/formulario?email=${encodeURIComponent(email)}`
+    )
   }
 
   const eliminarUsuario = async () => {
@@ -77,18 +100,24 @@ export default function UsuariosSistemaPage() {
       )
 
       if (res.estado === 'Exitoso') {
-        // quitar del estado local
-        setUsuarios(prev => prev.filter(u => u.email !== userToDelete.email))
-        // si la página queda vacía y hay páginas previas, retroceder
+        setUsuarios((prev) =>
+          prev.filter((u) => u.email !== userToDelete.email)
+        )
         setTimeout(() => {
           setResultModal({ success: true, message: 'Usuario eliminado con éxito' })
-          if (usuarios.length === 1 && page > 1) setPage(p => p - 1)
+          if (usuarios.length === 1 && page > 1) setPage((p) => p - 1)
         }, 0)
       } else {
-        setResultModal({ success: false, message: res.message || 'No se pudo eliminar el usuario' })
+        setResultModal({
+          success: false,
+          message: res.message || 'No se pudo eliminar el usuario',
+        })
       }
     } catch {
-      setResultModal({ success: false, message: 'Error inesperado al eliminar el usuario' })
+      setResultModal({
+        success: false,
+        message: 'Error inesperado al eliminar el usuario',
+      })
     } finally {
       setDeletingEmail(null)
       setUserToDelete(null)
@@ -97,21 +126,26 @@ export default function UsuariosSistemaPage() {
 
   return (
     <div>
-      <h1 className="text-2xl sm:text-3xl font-semibold mb-4 text-[#333]">
+      {/* Título con ayuda */}
+      <h1 className="text-2xl sm:text-3xl font-semibold mb-4 text-[#333] flex items-center">
         Usuarios del sistema
+        <Tooltip text="Aquí puedes visualizar, buscar, editar o eliminar los usuarios que tienen acceso al sistema." />
       </h1>
 
-      {/* Buscador */}
+      {/* Buscador con ayuda */}
       <div className="flex flex-col sm:flex-row gap-4 mb-4">
-        <div className="relative w-full sm:max-w-xs">
+        <div className="relative w-full sm:max-w-xs flex items-center">
           <Search className="absolute left-3 top-2.5 text-[#7d4f2b]" size={18} />
           <input
             type="text"
             placeholder="Buscar por email o personaId..."
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-[#7d4f2b] rounded text-sm text-gray-700"
+            className="w-full pl-10 pr-10 py-2 border border-[#7d4f2b] rounded text-sm text-gray-700"
           />
+          <div className="absolute right-2 top-2.5">
+          </div>
+          <Tooltip text="Puedes buscar un usuario ingresando su email o su personaId." />
         </div>
       </div>
 
@@ -152,7 +186,7 @@ export default function UsuariosSistemaPage() {
                     <button
                       onClick={() => handleEditar(u.email)}
                       className="text-[#7d4f2b] hover:text-blue-600"
-                      title="Editar"
+                      title="Editar usuario"
                     >
                       <Pencil size={18} />
                     </button>
@@ -160,7 +194,7 @@ export default function UsuariosSistemaPage() {
                       onClick={() => setUserToDelete(u)}
                       className="text-[#7d4f2b] hover:text-red-600 disabled:opacity-50"
                       disabled={deletingEmail === u.email}
-                      title="Eliminar"
+                      title="Eliminar usuario"
                     >
                       <Trash size={18} />
                     </button>
@@ -176,7 +210,7 @@ export default function UsuariosSistemaPage() {
       <div className="flex justify-between items-center mt-6">
         <button
           disabled={page <= 1}
-          onClick={() => setPage(prev => prev - 1)}
+          onClick={() => setPage((prev) => prev - 1)}
           className="px-4 py-2 rounded bg-[#7d4f2b] text-white disabled:opacity-50"
         >
           Anterior
@@ -186,14 +220,14 @@ export default function UsuariosSistemaPage() {
         </span>
         <button
           disabled={page >= totalPages}
-          onClick={() => setPage(prev => prev + 1)}
+          onClick={() => setPage((prev) => prev + 1)}
           className="px-4 py-2 rounded bg-[#7d4f2b] text-white disabled:opacity-50"
         >
           Siguiente
         </button>
       </div>
 
-      {/* Botón nuevo usuario (abajo derecha) */}
+      {/* Botón nuevo usuario */}
       <div className="mt-6 text-right">
         <button
           onClick={() => router.push('/dashboard/usuarios/formulario')}
@@ -246,7 +280,11 @@ export default function UsuariosSistemaPage() {
             >
               <X size={20} />
             </button>
-            <p className={`text-lg mb-6 ${resultModal.success ? '' : 'text-red-700'}`}>
+            <p
+              className={`text-lg mb-6 ${
+                resultModal.success ? '' : 'text-red-700'
+              }`}
+            >
               {resultModal.message}
             </p>
             <div className="flex justify-center">

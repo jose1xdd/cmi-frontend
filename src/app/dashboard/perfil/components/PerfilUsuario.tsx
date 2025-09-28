@@ -134,9 +134,9 @@ export default function PerfilUsuario({ data }: PerfilUsuarioProps) {
           <button
             type="button"
             onClick={handleRecuperar}
-            className="bg-[#9c5a25] hover:bg-[#7b4317] text-white px-8 py-2 rounded-lg font-semibold transition-colors"
+            className="bg-[#7d4f2b] hover:bg-[#7b4317] text-white px-8 py-2 rounded-lg font-semibold transition-colors"
           >
-            Recuperar contraseña
+            Cambiar contraseña
           </button>
         </div>
       </div>

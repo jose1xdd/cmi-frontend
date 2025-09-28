@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Eye, Trash, Search, Pencil, X, Upload } from 'lucide-react'
+import { Eye, Trash, Search, Pencil, X, Upload, HelpCircle, Download } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
 import { enumSexo, enumDocumento } from '@/constants/enums'
@@ -20,6 +20,30 @@ function useDebounce<T>(value: T, delay: number): T {
 
   return debouncedValue
 }
+
+  function Tooltip({
+    text,
+    color = '#7d4f2b',
+    responsive = false,
+  }: {
+    text: string
+    color?: string
+    responsive?: boolean
+  }) {
+    return (
+      <div className="relative group inline-block ml-2">
+        <HelpCircle className="w-4 h-4 cursor-pointer" style={{ color }} />
+        <div
+          className={`absolute hidden group-hover:block top-[120%] left-1/2 -translate-x-1/2
+                      bg-black text-white text-xs rounded px-3 py-2 shadow-md text-left whitespace-normal z-50
+                      ${responsive ? 'max-w-[80vw] sm:max-w-xs break-words' : 'min-w-[200px] max-w-xs'}`}
+        >
+          {text}
+        </div>
+      </div>
+    )
+  }
+
 
 interface Persona {
   id: string
@@ -222,11 +246,14 @@ export default function UsuariosPage() {
 
   return (
     <div>
-      <h1 className="text-2xl sm:text-3xl font-semibold mb-4 text-[#333]">Usuarios</h1>
+      <h1 className="text-2xl sm:text-3xl font-semibold mb-4 text-[#333] flex items-center">
+        Personas
+        <Tooltip text="En esta sección puedes gestionar todas las personas registradas en el sistema." />
+      </h1>
 
       {/* Buscador y filtros */}
       <div className="flex flex-col gap-4 mb-4">
-        <div className="relative w-full sm:max-w-xs">
+        <div className="relative w-full sm:max-w-xs flex items-center">
           <Search className="absolute left-3 top-2.5 text-[#7d4f2b]" size={18} />
           <input
             type="text"
@@ -235,60 +262,73 @@ export default function UsuariosPage() {
             onChange={(e) => setBusqueda(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-[#7d4f2b] rounded text-sm text-gray-700"
           />
+          <Tooltip text="Puedes buscar por nombre, apellido o número de documento." />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-          <select
-            value={filtroDocumento}
-            onChange={(e) => setFiltroDocumento(e.target.value)}
-            className="border border-[#7d4f2b] rounded px-3 py-2 text-sm text-gray-700"
-          >
-            <option value="">Todos los documentos</option>
-            {Object.entries(enumDocumento).map(([code, label]) => (
-              <option key={code} value={code}>
-                {label}
-              </option>
-            ))}
-          </select>
+          <div className="flex items-center">
+            <select
+              value={filtroDocumento}
+              onChange={(e) => setFiltroDocumento(e.target.value)}
+              className="border border-[#7d4f2b] rounded px-3 py-2 text-sm text-gray-700 w-full max-w-[300px]"
+            >
+              <option value="">Todos los documentos</option>
+              {Object.entries(enumDocumento).map(([code, label]) => (
+                <option key={code} value={code}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <Tooltip text="Filtra las personas según el tipo de documento." />
+          </div>
 
-          <select
-            value={filtroSexo}
-            onChange={(e) => setFiltroSexo(e.target.value)}
-            className="border border-[#7d4f2b] rounded px-3 py-2 text-sm text-gray-700"
-          >
-            <option value="">Todos los sexos</option>
-            {Object.entries(enumSexo).map(([code, label]) => (
-              <option key={code} value={code}>
-                {label}
-              </option>
-            ))}
-          </select>
+          <div className="flex items-center">
+            <select
+              value={filtroSexo}
+              onChange={(e) => setFiltroSexo(e.target.value)}
+              className="border border-[#7d4f2b] rounded px-3 py-2 text-sm text-gray-700 w-full max-w-[300px]"
+            >
+              <option value="">Todos los sexos</option>
+              {Object.entries(enumSexo).map(([code, label]) => (
+                <option key={code} value={code}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <Tooltip text="Filtra las personas por sexo." />
+          </div>
 
-          <select
-            value={filtroParcialidad}
-            onChange={(e) => setFiltroParcialidad(e.target.value)}
-            className="border border-[#7d4f2b] rounded px-3 py-2 text-sm text-gray-700"
-          >
-            <option value="">Todas las parcialidades</option>
-            {parcialidades.map((p) => (
-              <option key={p.id} value={p.id.toString()}>
-                {p.nombre}
-              </option>
-            ))}
-          </select>
+          <div className="flex items-center">
+            <select
+              value={filtroParcialidad}
+              onChange={(e) => setFiltroParcialidad(e.target.value)}
+              className="border border-[#7d4f2b] rounded px-3 py-2 text-sm text-gray-700 w-full max-w-[300px]"
+            >
+              <option value="">Todas las parcialidades</option>
+              {parcialidades.map((p) => (
+                <option key={p.id} value={p.id.toString()}>
+                  {p.nombre}
+                </option>
+              ))}
+            </select>
+            <Tooltip text="Filtra las personas por parcialidad." />
+          </div>
 
-          <select
-            value={filtroFamilia}
-            onChange={(e) => setFiltroFamilia(e.target.value)}
-            className="border border-[#7d4f2b] rounded px-3 py-2 text-sm text-gray-700"
-          >
-            <option value="">Todas las familias</option>
-            {familias.map((f) => (
-              <option key={f.id} value={f.id.toString()}>
-                Familia {f.id} ({f.integrantes} integrantes)
-              </option>
-            ))}
-          </select>
+          <div className="flex items-center">
+            <select
+              value={filtroFamilia}
+              onChange={(e) => setFiltroFamilia(e.target.value)}
+              className="border border-[#7d4f2b] rounded px-3 py-2 text-sm text-gray-700 w-full max-w-[300px]"
+            >
+              <option value="">Todas las familias</option>
+              {familias.map((f) => (
+                <option key={f.id} value={f.id.toString()}>
+                  Familia {f.id} ({f.integrantes} integrantes)
+                </option>
+              ))}
+            </select>
+            <Tooltip text="Filtra las personas por familia."  responsive />
+          </div>
         </div>
       </div>
 
@@ -343,13 +383,22 @@ export default function UsuariosPage() {
                     </td>
                     <td className="px-4 py-2 text-center">{usuario.idFamilia ?? '-'}</td>
                     <td className="px-4 py-2 flex items-center gap-2">
-                      <button onClick={() => handleVerUsuario(usuario)} className="text-[#7d4f2b] hover:text-[#5e3c1f]">
+                      <button
+                        onClick={() => handleVerUsuario(usuario)}
+                        className="text-[#7d4f2b] hover:text-[#5e3c1f] flex items-center"
+                      >
                         <Eye size={18} />
                       </button>
-                      <button onClick={() => handleEditar(usuario.id)} className="text-[#7d4f2b] hover:text-blue-600">
+                      <button
+                        onClick={() => handleEditar(usuario.id)}
+                        className="text-[#7d4f2b] hover:text-blue-600 flex items-center"
+                      >
                         <Pencil size={18} />
                       </button>
-                      <button onClick={() => confirmarEliminacion(usuario)} className="text-[#7d4f2b] hover:text-red-600">
+                      <button
+                        onClick={() => confirmarEliminacion(usuario)}
+                        className="text-[#7d4f2b] hover:text-red-600 flex items-center"
+                      >
                         <Trash size={18} />
                       </button>
                     </td>
@@ -383,7 +432,9 @@ export default function UsuariosPage() {
       {/* Botones */}
       <div className="mt-6 flex flex-col sm:flex-row justify-end gap-3">
         <label className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded flex items-center gap-2 cursor-pointer">
-          <Upload size={18} /> Carga masiva (Excel)
+          <Upload size={18} />
+          Carga masiva (Excel)
+          <Tooltip text="Sube un archivo Excel para cargar varias personas a la vez." color="text-white" />
           <input
             type="file"
             accept=".xlsx,.xls"
@@ -396,10 +447,18 @@ export default function UsuariosPage() {
           />
         </label>
         <button
-          onClick={() => router.push('/dashboard/personas/formulario')}
-          className="bg-[#7d4f2b] hover:bg-[#5e3c1f] text-white px-6 py-2 rounded"
+          onClick={() => window.open('/plantillas/usuarios.xlsx', '_blank')}
+          className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded flex items-center gap-2"
         >
-          Nuevo usuario
+          <Download size={18} />
+          Descargar formato
+          <Tooltip text="Descarga la plantilla de Excel para registrar personas." color="text-white" />
+        </button>
+        <button
+          onClick={() => router.push('/dashboard/personas/formulario')}
+          className="bg-[#7d4f2b] hover:bg-[#5e3c1f] text-white px-6 py-2 rounded flex items-center gap-2"
+        >
+          Nueva persona
         </button>
       </div>
 

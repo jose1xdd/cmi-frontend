@@ -12,8 +12,18 @@ export default function NuevaPublicacionPage() {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
+  // 📌 Límite de 5 MB
+  const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
+
   const handleImagenChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
+
+    if (file && file.size > MAX_FILE_SIZE) {
+      alert('La imagen no puede superar los 5 MB')
+      e.target.value = '' // resetear input
+      return
+    }
+
     setImagen(file || null)
     if (file) {
       setPreviewUrl(URL.createObjectURL(file))
@@ -37,7 +47,7 @@ export default function NuevaPublicacionPage() {
       const formData = new FormData()
       formData.append('titulo', titulo)
       formData.append('contenido', contenido)
-      formData.append('fotos', imagen) // 👈 solo una foto
+      formData.append('fotos', imagen)
 
       const BASE_URL =
         process.env.NEXT_PUBLIC_API_BASE_URL ||
@@ -139,6 +149,10 @@ export default function NuevaPublicacionPage() {
                 aria-label="Subir foto"
               />
             </div>
+            {/* 📌 Mensaje de tamaño máximo permitido */}
+            <span className="text-xs text-gray-500 mt-2">
+              Tamaño máximo permitido: 5 MB
+            </span>
           </div>
         </div>
         <div className="flex justify-center mt-4">
