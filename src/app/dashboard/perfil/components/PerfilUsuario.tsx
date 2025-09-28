@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { UserCircle } from 'lucide-react'
 
 interface UsuarioData {
   nombre: string
@@ -21,7 +22,13 @@ interface PerfilUsuarioProps {
 
 export default function PerfilUsuario({ data }: PerfilUsuarioProps) {
   const [form] = useState(data)
+  const [tipoUsuario, setTipoUsuario] = useState<'admin' | 'usuario' | null>(null)
   const router = useRouter()
+
+  useEffect(() => {
+    const tipo = localStorage.getItem('tipoUsuario') as 'admin' | 'usuario' | null
+    setTipoUsuario(tipo)
+  }, [])
 
   const handleRecuperar = () => {
     router.push('/dashboard/perfil/recuperar')
@@ -31,10 +38,17 @@ export default function PerfilUsuario({ data }: PerfilUsuarioProps) {
     <div className="w-full px-4 pt-5">
       <div className="max-w-5xl mx-auto space-y-8">
         {/* Avatar */}
-        <div className="flex justify-center">
-          <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center text-4xl border-4 border-[#7d4f2b]">
-            👤
+        <div className="flex flex-col items-center">
+          <div className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center border-4 border-[#7d4f2b] shadow-md">
+            <UserCircle className="w-16 h-16 text-[#7d4f2b]" />
           </div>
+          <p
+            className={`mt-2 text-sm font-semibold uppercase ${
+              tipoUsuario === 'admin' ? 'text-black-600' : 'text-black-600'
+            }`}
+          >
+            {tipoUsuario || 'USUARIO'}
+          </p>
         </div>
 
         {/* Formulario (solo lectura) */}

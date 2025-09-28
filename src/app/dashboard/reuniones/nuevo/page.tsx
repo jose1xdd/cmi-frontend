@@ -9,6 +9,7 @@ export default function NuevaReunionPage() {
   const [fecha, setFecha] = useState('')
   const [horaInicio, setHoraInicio] = useState('')
   const [horaFin, setHoraFin] = useState('')
+  const [ubicacion, setUbicacion] = useState('') // ✅ Nuevo campo
   const [loading, setLoading] = useState(false)
   const [showModalExito, setShowModalExito] = useState(false)
 
@@ -16,7 +17,7 @@ export default function NuevaReunionPage() {
 
   // === CREAR REUNIÓN ===
   const agendarReunion = async () => {
-    if (!titulo || !fecha || !horaInicio || !horaFin) {
+    if (!titulo || !fecha || !horaInicio || !horaFin || !ubicacion) {
       alert('Por favor complete todos los campos obligatorios')
       return
     }
@@ -34,6 +35,7 @@ export default function NuevaReunionPage() {
           fecha,
           horaInicio,
           horaFinal: horaFin,
+          ubicacion, // ✅ Se envía en el body
         }),
       })
 
@@ -93,6 +95,17 @@ export default function NuevaReunionPage() {
             type="time"
             value={horaFin}
             onChange={e => setHoraFin(e.target.value)}
+            className="w-full border border-[#7d4f2b] rounded px-3 py-2 text-sm text-gray-700"
+            required
+          />
+        </div>
+        {/* ✅ Nuevo input Ubicación */}
+        <div className="sm:col-span-2">
+          <label className="block text-sm text-gray-700 mb-1">Ubicación *</label>
+          <input
+            value={ubicacion}
+            onChange={e => setUbicacion(e.target.value)}
+            placeholder="Ej: Salón comunal, Oficina 101, etc."
             className="w-full border border-[#7d4f2b] rounded px-3 py-2 text-sm text-gray-700"
             required
           />

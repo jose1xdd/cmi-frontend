@@ -447,7 +447,7 @@ export default function UsuariosPage() {
           />
         </label>
         <button
-          onClick={() => window.open('/plantillas/usuarios.xlsx', '_blank')}
+          onClick={() => window.open('/plantillas/plantilla_personas.xlsx', '_blank')}
           className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded flex items-center gap-2"
         >
           <Download size={18} />

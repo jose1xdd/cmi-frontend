@@ -3,13 +3,13 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
+import { UserCircle, HelpCircle } from 'lucide-react'
 import {
   enumEscolaridad,
   enumDocumento,
   enumSexo,
   enumParentesco,
 } from '@/constants/enums'
-import { HelpCircle } from 'lucide-react'
 
 interface AdminData {
   nombre: string
@@ -61,8 +61,14 @@ export default function PerfilAdmin({ data }: PerfilAdminProps) {
 
   const [parcialidades, setParcialidades] = useState<Parcialidad[]>([])
   const [familias, setFamilias] = useState<Familia[]>([])
+  const [tipoUsuario, setTipoUsuario] = useState<'admin' | 'usuario' | null>(null)
 
   useEffect(() => {
+    // Obtener rol del localStorage
+    const tipo = localStorage.getItem('tipoUsuario') as 'admin' | 'usuario' | null
+    setTipoUsuario(tipo)
+
+    // Cargar parcialidades y familias
     apiFetch<{ items: Parcialidad[] }>('/parcialidad/?page=1&page_size=100')
       .then((res) => setParcialidades(res.items))
       .catch(() => setParcialidades([]))
@@ -113,10 +119,17 @@ export default function PerfilAdmin({ data }: PerfilAdminProps) {
     <div className="w-full px-4 pt-5">
       <div className="max-w-5xl mx-auto space-y-8">
         {/* Avatar */}
-        <div className="flex justify-center">
-          <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center text-4xl border-4 border-[#7d4f2b]">
-            👤
+        <div className="flex flex-col items-center">
+          <div className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center border-4 border-[#7d4f2b] shadow-md">
+            <UserCircle className="w-16 h-16 text-[#7d4f2b]" />
           </div>
+          <p
+            className={`mt-2 text-sm font-semibold uppercase ${
+              tipoUsuario === 'admin' ? 'text-black-600' : 'text-blue-600'
+            }`}
+          >
+            {tipoUsuario || 'USUARIO'}
+          </p>
         </div>
 
         {/* Formulario */}
@@ -277,7 +290,7 @@ export default function PerfilAdmin({ data }: PerfilAdminProps) {
           <div>
             <label className="block text-sm text-[#7d4f2b] mb-1 flex items-center">
               Parentesco
-              <Tooltip text="Seleccione El parentesco que tiene en su familia, Ejemplo: Eres el Padre de familia, Hijo" />
+              <Tooltip text="Seleccione el parentesco que tiene en su familia, Ejemplo: Eres el Padre de familia, Hijo" />
             </label>
             <select
               name="parentesco"

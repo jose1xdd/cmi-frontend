@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Pencil, CheckSquare, HelpCircle } from 'lucide-react'
+import { Pencil, CheckSquare, HelpCircle, Lock } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
 import { useAuth } from '@/context/AuthContext'
@@ -37,6 +37,8 @@ interface Reunion {
   horaInicio: string
   horaFinal: string
   fecha: string
+  ubicacion: string
+  editable: boolean
 }
 
 interface ReunionUsuario extends Reunion {
@@ -162,25 +164,26 @@ export default function ReunionesUsuario() {
               <tr>
                 <th className="px-4 py-2 text-left">ID</th>
                 <th className="px-4 py-2 text-left">Reunión</th>
+                <th className="px-4 py-2 text-left">Ubicación</th>
                 <th className="px-4 py-2 text-center">Hora Inicio</th>
                 <th className="px-4 py-2 text-center">Hora Fin</th>
                 <th className="px-4 py-2 text-center">Fecha</th>
                 <th className="px-4 py-2 text-center flex items-center justify-center">
                   Asistencia
-                  <Tooltip text="✔️ indica asistencia registrada. ✏️ permite marcar asistencia." responsive />
+                  <Tooltip text="✔️ indica asistencia registrada. ✏️ permite marcar asistencia (si la reunión está abierta)." responsive />
                 </th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-6">
+                  <td colSpan={7} className="text-center py-6">
                     Cargando...
                   </td>
                 </tr>
               ) : reuniones.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-6">
+                  <td colSpan={7} className="text-center py-6">
                     No hay reuniones disponibles
                   </td>
                 </tr>
@@ -192,6 +195,7 @@ export default function ReunionesUsuario() {
                   >
                     <td className="px-4 py-2">{reunion.id}</td>
                     <td className="px-4 py-2">{reunion.titulo}</td>
+                    <td className="px-4 py-2">{reunion.ubicacion || '-'}</td>
                     <td className="px-4 py-2 text-center">{reunion.horaInicio}</td>
                     <td className="px-4 py-2 text-center">{reunion.horaFinal}</td>
                     <td className="px-4 py-2 text-center">{reunion.fecha}</td>
@@ -201,7 +205,7 @@ export default function ReunionesUsuario() {
                           className="mx-auto text-green-600"
                           size={22}
                         />
-                      ) : (
+                      ) : reunion.editable ? (
                         <button
                           onClick={() =>
                             router.push(
@@ -212,6 +216,8 @@ export default function ReunionesUsuario() {
                         >
                           <Pencil className="text-[#b57d50]" size={22} />
                         </button>
+                      ) : (
+                        <Lock className="mx-auto text-gray-400" size={22} />
                       )}
                     </td>
                   </tr>

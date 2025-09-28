@@ -277,7 +277,7 @@ export default function ParcialidadesPage() {
           />
         </label>
         <button
-          onClick={() => window.open('/plantillas/parcialidades.xlsx', '_blank')}
+          onClick={() => window.open('/plantillas/plantilla_parcialidades.xlsx', '_blank')}
           className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded flex items-center gap-2"
         >
           <Download size={18} /> Descargar formato

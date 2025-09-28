@@ -35,6 +35,7 @@ interface Reunion {
   fecha: string
   horaInicio: string
   horaFinal: string
+  ubicacion: string
 }
 
 interface ReunionesResponse {
@@ -56,6 +57,8 @@ export default function ReunionesAdmin() {
   const [reunionSeleccionada, setReunionSeleccionada] = useState<Reunion | null>(null)
   const [mostrarModalConfirmacion, setMostrarModalConfirmacion] = useState(false)
   const [mostrarModalExito, setMostrarModalExito] = useState(false)
+  const [mostrarModalError, setMostrarModalError] = useState(false)
+  const [mensajeError, setMensajeError] = useState('')
 
   // === LISTAR ===
   const fetchReuniones = async () => {
@@ -102,9 +105,19 @@ export default function ReunionesAdmin() {
       setMostrarModalConfirmacion(false)
       setMostrarModalExito(true)
       fetchReuniones()
-    } catch (err) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
       console.error('Error eliminando reunión', err)
       setMostrarModalConfirmacion(false)
+
+      // Intentar leer el mensaje del backend
+      try {
+        const parsed = JSON.parse(err.message)
+        setMensajeError(parsed.mensaje || 'Ocurrió un error inesperado')
+      } catch {
+        setMensajeError('No se pudo eliminar la reunión')
+      }
+      setMostrarModalError(true)
     }
   }
 
@@ -148,7 +161,6 @@ export default function ReunionesAdmin() {
             className="bg-[#7d4f2b] hover:bg-[#5e3c1f] text-white px-6 py-2 rounded flex items-center gap-2"
           >
             <Plus size={18} /> Nueva reunión
-            <Tooltip text="Crea una nueva reunión en el sistema." />
           </button>
         </div>
       </div>
@@ -166,6 +178,7 @@ export default function ReunionesAdmin() {
                 <tr>
                   <th className="px-4 py-2 text-left">ID</th>
                   <th className="px-4 py-2 text-left">Título</th>
+                  <th className="px-4 py-2 text-left">Ubicación</th>
                   <th className="px-4 py-2 text-center">Hora Inicio</th>
                   <th className="px-4 py-2 text-center">Hora Final</th>
                   <th className="px-4 py-2 text-center">Fecha</th>
@@ -177,6 +190,7 @@ export default function ReunionesAdmin() {
                   <tr key={reunion.id} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
                     <td className="px-4 py-2">{reunion.id}</td>
                     <td className="px-4 py-2">{reunion.titulo}</td>
+                    <td className="px-4 py-2">{reunion.ubicacion || '-'}</td>
                     <td className="px-4 py-2 text-center">{reunion.horaInicio}</td>
                     <td className="px-4 py-2 text-center">{reunion.horaFinal}</td>
                     <td className="px-4 py-2 text-center">{reunion.fecha}</td>
@@ -259,6 +273,21 @@ export default function ReunionesAdmin() {
               className="bg-[#7d4f2b] text-white px-6 py-2 rounded hover:bg-[#5e3c1f]"
             >
               Aceptar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de error */}
+      {mostrarModalError && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-40 flex items-center justify-center px-4">
+          <div className="bg-white rounded-lg shadow-md p-6 max-w-sm w-full text-center relative">
+            <p className="text-lg mb-6 text-black-600">{mensajeError}</p>
+            <button
+              onClick={() => setMostrarModalError(false)}
+              className="bg-[#b85c38] text-white px-6 py-2 rounded hover:bg-[#96492d]"
+            >
+              Cerrar
             </button>
           </div>
         </div>

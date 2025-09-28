@@ -198,7 +198,6 @@ export default function FamiliaPage() {
                         className="text-[#7d4f2b] hover:text-red-600 flex items-center"
                       >
                         <Trash size={18} />
-                        <Tooltip text="Eliminar familia seleccionada." />
                       </button>
                     </td>
                   </tr>
@@ -247,7 +246,7 @@ export default function FamiliaPage() {
           />
         </label>
         <button
-          onClick={() => window.open('/plantillas/familias.xlsx', '_blank')}
+          onClick={() => window.open('/plantillas/plantilla_familia.xlsx', '_blank')}
           className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded flex items-center gap-2"
         >
           <Download size={18} /> Descargar formato

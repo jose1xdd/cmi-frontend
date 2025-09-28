@@ -149,7 +149,7 @@ export default function NuevaPublicacionPage() {
                 aria-label="Subir foto"
               />
             </div>
-            {/* 📌 Mensaje de tamaño máximo permitido */}
+            {/* Mensaje de tamaño máximo permitido */}
             <span className="text-xs text-gray-500 mt-2">
               Tamaño máximo permitido: 5 MB
             </span>
