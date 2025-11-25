@@ -7,7 +7,15 @@ const nextConfig: NextConfig = {
   },
   typescript: {
     ignoreBuildErrors: true,
-  }
+  },
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: 'http://backend-quillacinga.ddns.net/cmi-apigateway/:path*',
+      },
+    ];
+  },
 };
 
 export default nextConfig;

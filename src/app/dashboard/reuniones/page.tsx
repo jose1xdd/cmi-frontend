@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import ReunionesAdmin from './components/ReunionesAdmin'
-import ReunionesUsuario from './components/ReunionesUsuario'
+import ReunionesAdmin from './views/ReunionesAdmin'
+import ReunionesUsuario from './views/ReunionesUsuario'
 
 export default function ReunionesPage() {
   const [tipoUsuario, setTipoUsuario] = useState<'admin' | 'usuario' | null>(null)

@@ -1,44 +1,74 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Trash, Upload, X, HelpCircle, Download } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import {
+  Users,
+  Trash2,
+  Upload,
+  Download,
+  Plus,
+  X,
+  User,
+  FileText,
+  Building,
+  UsersRound,
+  CircleCheck,
+  CircleX,
+  Eye,
+} from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
+import { Tooltip } from '@/components/Tooltip'
+import { AnimatedFilterField } from '@/components/AnimatedFilterField'
+import { StatCard } from '@/components/StatCard'
+import CrearFamiliaModal from './nuevo/CrearFamiliaModal'
 
-/* Tooltip reutilizable */
-function Tooltip({
-  text,
-  color = '#7d4f2b',
-  responsive = false,
-}: {
-  text: string
-  color?: string
-  responsive?: boolean
-}) {
-  return (
-    <div className="relative group inline-block ml-1">
-      <HelpCircle className="w-4 h-4 cursor-pointer" style={{ color }} />
-      <div
-        className={`absolute hidden group-hover:block top-[120%] left-1/2 -translate-x-1/2
-                    bg-black text-white text-xs rounded px-3 py-2 shadow-md text-left whitespace-normal z-50
-                    ${responsive ? 'max-w-[80vw] sm:max-w-xs break-words' : 'min-w-[200px] max-w-xs'}`}
-      >
-        {text}
-      </div>
-    </div>
-  )
+// === INTERFACES ===
+
+// Lo que devuelve la API
+interface Representante {
+  id: string
+  tipoDocumento: string
+  nombre: string
+  apellido: string
+  fechaNacimiento: string
+  parentesco: string
+  sexo: string
+  profesion: string
+  escolaridad: string
+  direccion: string
+  telefono: string
+  activo: boolean
+  fechaDefuncion?: string
+  idFamilia: number
+  parcialidad?: {
+    id: number
+    nombre: string
+  }
 }
 
-interface Familia {
+interface FamiliaApi {
   id: number
-  integrantes: number
+  representante_id: string
+  estado: 'ACTIVA' | 'INACTIVA'
+  representante: Representante
 }
 
-interface FamiliaResponse {
+interface FamiliaApiResponse {
   total_items: number
   current_page: number
   total_pages: number
-  items: Familia[]
+  items: FamiliaApi[]
+}
+
+// Lo que usamos internamente en el componente
+interface Familia {
+  id: number
+  lider: string
+  cedula: string
+  parcialidad: string
+  miembros: number
+  estado: 'activa' | 'inactiva'
 }
 
 interface UploadError {
@@ -54,34 +84,94 @@ interface UploadResponse {
   errores: UploadError[]
 }
 
+// === COMPONENTE PRINCIPAL ===
 export default function FamiliaPage() {
   const router = useRouter()
 
   const [familias, setFamilias] = useState<Familia[]>([])
   const [familiaSeleccionada, setFamiliaSeleccionada] = useState<Familia | null>(null)
-  const [mostrarModalConfirmacion, setMostrarModalConfirmacion] = useState(false)
-  const [mostrarModalExito, setMostrarModalExito] = useState(false)
-  const [mensajeExito, setMensajeExito] = useState('')
   const [loading, setLoading] = useState(false)
-
-  // 📊 paginación
   const [page, setPage] = useState(1)
-  const pageSize = 10
   const [totalPages, setTotalPages] = useState(1)
+  const [showCrearFamiliaModal, setShowCrearFamiliaModal] = useState(false)
 
-  // 📂 carga masiva
+  const [totalFamilias, setTotalFamilias] = useState(0)
+  const [totalPersonas , setTotalPersonas] = useState(0)
+
+  // Filtros
+  const [busqueda, setBusqueda] = useState('')
+  const [filtroParcialidad, setFiltroParcialidad] = useState('')
+  const [filtroMiembros, setFiltroMiembros] = useState('')
+  const [filtroEstado, setFiltroEstado] = useState('')
+
   const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [successMessage, setSuccessMessage] = useState('')
 
+  const cargarStats = async () => {
+    const data = await apiFetch<any>(`/familias/estadisticas-generales`)
+    setTotalFamilias(data.total_familias)
+    setTotalPersonas(data.total_personas)
+  }
+
+  // === CARGAR FAMILIAS ===
   const fetchFamilias = async () => {
     setLoading(true)
     try {
-      const data = await apiFetch<FamiliaResponse>(
-        `/familias/?page=${page}&page_size=${pageSize}`
+      const params = new URLSearchParams({
+        page: page.toString(),
+        page_size: '9',
+      })
+      if (busqueda) params.append('query', busqueda)
+      if (filtroParcialidad) params.append('parcialidad_id', filtroParcialidad)
+      // NOTA: 'miembros' y 'estado' probablemente no estén soportados por el backend tal como están.
+      // Si no están, debes filtrar en el frontend o usar endpoints específicos si existen.
+      // Por ahora, los pasamos por si acaso.
+      if (filtroEstado) params.append('estado', filtroEstado.toUpperCase())
+      if (filtroMiembros) params.append('rango_miembros', filtroMiembros)
+
+      const data = await apiFetch<FamiliaApiResponse>(`/familias/search?${params.toString()}`)
+
+      // Mapear la respuesta de la API a nuestro formato interno
+      const familiasMapeadas: Familia[] = await Promise.all(
+        data.items.map(async (apiFam) => {
+          const tieneRepresentante = !!apiFam.representante;
+          const lider = tieneRepresentante
+            ? `${apiFam.representante.nombre} ${apiFam.representante.apellido}`
+            : 'Sin líder';
+          const cedula = tieneRepresentante ? apiFam.representante.id : '-';
+          const parcialidadNombre = tieneRepresentante
+            ? apiFam.representante.parcialidad?.nombre || '-'
+            : '-';
+          // Calcular número de miembros
+          let conteoMiembros = 0
+          try {
+            const paramsMiembros = new URLSearchParams({
+              idFamilia: apiFam.id.toString(),
+              page: '1',
+              page_size: '1', // Solo necesitamos el total
+            })
+            const res = await apiFetch<{ total_items: number }>(`/personas/?${paramsMiembros.toString()}`)
+            conteoMiembros = res.total_items || 0
+          } catch (err) {
+            console.error(`Error al contar miembros de la familia ${apiFam.id}`, err)
+            // Dejar en 0 si falla
+          }
+           return {
+              id: apiFam.id,
+              lider,
+              cedula,
+              parcialidad: parcialidadNombre,
+              miembros: conteoMiembros,
+              estado: apiFam.estado.toLowerCase() as 'activa' | 'inactiva',
+            }
+        })
       )
-      setFamilias(data.items)
+
+      setFamilias(familiasMapeadas)
       setTotalPages(data.total_pages || 1)
-    } catch (error) {
-      console.error('Error cargando familias:', error)
+    } catch (err) {
+      console.error('Error cargando familias', err)
     } finally {
       setLoading(false)
     }
@@ -89,53 +179,42 @@ export default function FamiliaPage() {
 
   useEffect(() => {
     fetchFamilias()
-  }, [page])
+    cargarStats()
+  }, [page, busqueda, filtroParcialidad, filtroEstado, filtroMiembros])
 
-  const confirmarEliminacion = (familia: Familia) => {
-    setFamiliaSeleccionada(familia)
-    setMostrarModalConfirmacion(true)
-  }
+  // === ACCIONES ===
+  const handleDelete = (familia: Familia) => setFamiliaSeleccionada(familia)
 
-  const cancelarEliminacion = () => {
-    setFamiliaSeleccionada(null)
-    setMostrarModalConfirmacion(false)
-  }
-
-  const eliminarFamilia = async () => {
-    if (familiaSeleccionada) {
-      try {
-        const res = await apiFetch<{ estado: string; message: string; data: string }>(
-          `/familias/${familiaSeleccionada.id}`,
-          { method: 'DELETE' }
-        )
-
-        if (res.estado === 'Exitoso') {
-          setMensajeExito('La familia ha sido eliminada con éxito')
-          setMostrarModalExito(true)
-        } else {
-          setMensajeExito(res.message || 'Error eliminando familia')
-          setMostrarModalExito(true)
-        }
-      } catch {
-        setMensajeExito('Error eliminando familia')
-        setMostrarModalExito(true)
-      } finally {
-        setFamiliaSeleccionada(null)
-        setMostrarModalConfirmacion(false)
-      }
+  const confirmDelete = async () => {
+    if (!familiaSeleccionada) return
+    try {
+      const res = await apiFetch<{ estado: string; message: string }>(
+        `/familias/${familiaSeleccionada.id}`,
+        { method: 'DELETE' }
+      )
+      setSuccessMessage(
+        res.estado === 'Exitoso'
+          ? 'La familia ha sido eliminada con éxito'
+          : res.message || 'Error al eliminar la familia'
+      )
+    } catch {
+      setSuccessMessage('Error inesperado al eliminar la familia')
+    } finally {
+      setFamiliaSeleccionada(null)
+      setShowSuccessModal(true)
     }
   }
 
-  const cerrarModalExito = async () => {
-    setMostrarModalExito(false)
-    await fetchFamilias()
+  const closeModal = () => {
+    setFamiliaSeleccionada(null)
+    setShowSuccessModal(false)
+    setUploadResult(null)
   }
 
-  // 📂 subir excel
+  // === CARGA MASIVA ===
   const handleUploadExcel = async (file: File) => {
     const formData = new FormData()
     formData.append('file', file)
-
     try {
       const res = await apiFetch<UploadResponse>('/familias/upload-excel', {
         method: 'POST',
@@ -153,51 +232,223 @@ export default function FamiliaPage() {
     }
   }
 
+  // === DATOS PARA FILTROS ===
+  // Debes cargarlos desde la API
+  const [parcialidades, setParcialidades] = useState<{ id: number; nombre: string }[]>([])
+  const [loadingParcialidades, setLoadingParcialidades] = useState(true)
+
+  const fetchParcialidades = async () => {
+    try {
+      const data = await apiFetch<{ items: { id: number; nombre: string }[] }>(
+        '/parcialidad/?page=1&page_size=100'
+      )
+      setParcialidades(data.items || [])
+    } catch (err) {
+      console.error('Error al cargar parcialidades', err)
+    } finally {
+      setLoadingParcialidades(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchParcialidades()
+  }, [])
+
+  const rangosMiembros = [
+    { value: '1-3', label: '1-3 miembros' },
+    { value: '4-6', label: '4-6 miembros' },
+    { value: '7+', label: '7+ miembros' },
+  ]
+
   return (
     <div>
-      <h1 className="text-2xl sm:text-3xl font-semibold mb-4 text-[#333] flex items-center">
-        Familias
-        <Tooltip text="Aquí puedes gestionar las familias registradas en el sistema." />
-      </h1>
+      {/* Encabezado */}
+      <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-5">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-semibold text-[#333] flex items-center gap-2">
+              <Users size={25} className="text-[#7d4f2b]" />
+              Gestión de Familias
+              <Tooltip text="Desde esta sección, puedes administrar todas las familias que han sido registradas."/>
+            </h1>
+          </div>
+
+          {/* Botones de acción */}
+          <div className="flex flex-wrap gap-3 pt-2">
+            <label className="relative overflow-hidden bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2 text-sm cursor-pointer transition-all duration-300 group hover:shadow-lg hover:-translate-y-[2px]">
+              <span className="absolute inset-0 bg-gradient-to-r from-green-700 to-green-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+              <Upload size={16} className="stroke-[3] relative z-10" />
+              <span className="relative z-10">Carga masiva</span>
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                className="hidden"
+                onChange={(e) => e.target.files?.[0] && handleUploadExcel(e.target.files[0])}
+              />
+              <Tooltip text="Sube un archivo Excel para registrar varias familias a la vez." color='white'/>
+            </label>
+
+            <button
+              onClick={() => window.open('/plantillas/plantilla_familia.xlsx', '_blank')}
+              className="relative overflow-hidden bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2 text-sm transition-all duration-300 group hover:shadow-lg hover:-translate-y-[2px]"
+            >
+              <span className="absolute inset-0 bg-gradient-to-r from-green-700 to-green-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+              <Download size={16} className="stroke-[3] relative z-10" />
+              <span className="relative z-10">Descargar formato</span>
+              <Tooltip text="Descarga la plantilla de Excel para registrar familias." color='white'/>
+            </button>
+
+            <button
+              onClick={() => setShowCrearFamiliaModal(true)}
+              className="relative overflow-hidden bg-[#7d4f2b] text-white px-5 py-2.5 rounded-lg flex items-center gap-2 text-sm font-medium transition-all duration-300 group hover:shadow-lg hover:-translate-y-0.5"
+            >
+              <span className="absolute inset-0 bg-gradient-to-r from-[#5e3c1f] to-[#7d4f2b] opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+              <Plus size={16} className="stroke-[3] relative z-10" />
+              <span className="relative z-10">Agregar Familia</span>
+            </button>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-4">
+          <div className="flex flex-col gap-3 justify-between">
+            <div className="flex flex-col md:flex-row gap-10">
+              <AnimatedFilterField
+                icon={User}
+                label="Buscar"
+                value={busqueda}
+                onChange={setBusqueda}
+                placeholder="Líder, cédula o número de familia..."
+                texttooltip="Busca por nombre del líder, cédula o ID de familia."
+              />
+
+              <AnimatedFilterField
+                as="select"
+                icon={Building}
+                label="Parcialidad"
+                value={filtroParcialidad}
+                onChange={setFiltroParcialidad}
+                options={[
+                  { value: '', label: 'Todas las parcialidades' },
+                  ...parcialidades.map((p) => ({ value: p.nombre, label: p.nombre })),
+                ]}
+                texttooltip="Filtra por parcialidad geográfica."
+              />
+
+              <AnimatedFilterField
+                as="select"
+                icon={UsersRound}
+                label="Miembros"
+                value={filtroMiembros}
+                onChange={setFiltroMiembros}
+                options={[
+                  { value: '', label: 'Todos' },
+                  ...rangosMiembros,
+                ]}
+                texttooltip="Filtra por número de miembros en la familia."
+              />
+
+              <AnimatedFilterField
+                as="select"
+                icon={FileText}
+                label="Estado"
+                value={filtroEstado}
+                onChange={setFiltroEstado}
+                options={[
+                  { value: '', label: 'Todos los estados' },
+                  { value: 'activa', label: 'Activa' },
+                  { value: 'inactiva', label: 'Inactiva' },
+                ]}
+                texttooltip="Filtra por estado de la familia."
+              />
+            </div>
+            <div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+      {/* Estadísticas */}
+      <div className="grid grid-cols-2 gap-6 mt-6 mb-6">
+        <StatCard
+          label="Total de familias"
+          value={totalFamilias}
+          icon={<Users className="w-4 h-4 sm:w-5 sm:h-5" />}
+          bg="bg-[#f3e5f5]"
+          color="text-[#9C27B0]"
+        />
+        <StatCard
+          label="Total de personas"
+          value={totalPersonas}
+          icon={<User className="w-4 h-4 sm:w-5 sm:h-5" />}
+          bg="bg-[#e3f2fd]"
+          color="text-[#2196F3]"
+        />
+      </div>
 
       {/* Tabla */}
-      <div className="overflow-x-auto border rounded">
-        <div className="max-h-[70vh] overflow-y-auto">
+      <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden mt-6">
+        <div className="overflow-x-auto">
           <table className="min-w-full">
             <thead className="bg-[#7d4f2b] text-white sticky top-0 z-10">
               <tr>
-                <th className="px-4 py-2 text-center">ID</th>
-                <th className="px-4 py-2 text-center">Número de integrantes</th>
-                <th className="px-4 py-2 text-center">Acciones</th>
+                <th className="px-5 py-3 text-left text-sm font-medium">#</th>
+                <th className="px-5 py-3 text-left text-sm font-medium">Líder</th>
+                <th className="px-5 py-3 text-left text-sm font-medium">Cédula</th>
+                <th className="px-5 py-3 text-left text-sm font-medium">Parcialidad</th>
+                <th className="px-5 py-3 text-left text-sm font-medium">Miembros</th>
+                <th className="px-5 py-3 text-left text-sm font-medium">Estado</th>
+                <th className="px-5 py-3 text-center text-sm font-medium">Acciones</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={3} className="text-center py-6">
+                  <td colSpan={7} className="text-center py-6 text-gray-500">
                     Cargando...
                   </td>
                 </tr>
               ) : familias.length === 0 ? (
                 <tr>
-                  <td colSpan={3} className="text-center py-6">
+                  <td colSpan={7} className="text-center py-6 text-gray-500">
                     No se encontraron familias
                   </td>
                 </tr>
               ) : (
-                familias.map((familia, index) => (
-                  <tr
-                    key={familia.id}
-                    className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}
-                  >
-                    <td className="px-4 py-2 text-center">{familia.id}</td>
-                    <td className="px-4 py-2 text-center">{familia.integrantes}</td>
-                    <td className="px-4 py-2 flex justify-center">
+                familias.map((f, index) => (
+                  <tr key={f.id} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                    <td className="px-5 py-4 text-gray-800">
+                      <span className="font-mono font-medium text-[#7d4f2b]">Fam-{f.id.toString().padStart(3, '0')}</span>
+                    </td>
+                    <td className="px-5 py-4 text-gray-800 font-medium">{f.lider}</td>
+                    <td className="px-5 py-4 text-gray-800 font-mono">{f.cedula}</td>
+                    <td className="px-5 py-4 text-gray-800">{f.parcialidad}</td>
+                    <td className="px-5 py-4 text-gray-800">{f.miembros} persona{f.miembros !== 1 ? 's' : ''}</td>
+                    <td className="px-5 py-4">
+                      {f.estado === 'activa' ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          <CircleCheck size={12} />
+                          Activa
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                          <CircleX size={12} />
+                          Inactiva
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-5 py-4 text-center">
                       <button
-                        onClick={() => confirmarEliminacion(familia)}
-                        className="text-[#7d4f2b] hover:text-red-600 flex items-center"
+                        onClick={() => router.push(`/dashboard/familias/ver?id=${f.id}`)}
+                        className="text-[#7d4f2b] mr-2 hover:text-blue-600 transition-colors"
+                        title="Ver familia"
                       >
-                        <Trash size={18} />
+                        <Eye size={18} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(f)}
+                        className="text-[#7d4f2b] hover:text-red-600 transition-colors"
+                        title="Eliminar familia"
+                      >
+                        <Trash2 size={18} />
                       </button>
                     </td>
                   </tr>
@@ -208,85 +459,77 @@ export default function FamiliaPage() {
         </div>
       </div>
 
-      {/* 🔄 Paginación */}
-      <div className="flex justify-between items-center mt-6">
-        <button
-          disabled={page <= 1}
-          onClick={() => setPage((prev) => prev - 1)}
-          className="px-4 py-2 rounded bg-[#7d4f2b] text-white disabled:opacity-50"
-        >
-          Anterior
-        </button>
-        <span>
-          Página {page} de {totalPages}
-        </span>
-        <button
-          disabled={page >= totalPages}
-          onClick={() => setPage((prev) => prev + 1)}
-          className="px-4 py-2 rounded bg-[#7d4f2b] text-white disabled:opacity-50"
-        >
-          Siguiente
-        </button>
+      {/* Paginación */}
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-2">
+        <div className="text-sm text-gray-600">Página {page} de {totalPages}</div>
+        <div className="flex gap-2">
+          <button
+            disabled={page <= 1}
+            onClick={() => setPage((p) => p - 1)}
+            className="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300 disabled:opacity-50"
+          >
+            Anterior
+          </button>
+          <button
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+            className="px-4 py-2 rounded-lg bg-[#7d4f2b] text-white hover:bg-[#5e3c1f] disabled:opacity-50"
+          >
+            Siguiente
+          </button>
+        </div>
       </div>
 
-      {/* Botones */}
-      <div className="flex justify-end mt-6 gap-3">
-        <label className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded flex items-center gap-2 cursor-pointer">
-          <Upload size={18} /> Carga masiva (Excel)
-          <Tooltip text="Sube un archivo Excel para registrar varias familias de una vez." color="white" />
-          <input
-            type="file"
-            accept=".xlsx,.xls"
-            className="hidden"
-            onChange={(e) => {
-              if (e.target.files && e.target.files[0]) {
-                handleUploadExcel(e.target.files[0])
-              }
-            }}
-          />
-        </label>
-        <button
-          onClick={() => window.open('/plantillas/plantilla_familia.xlsx', '_blank')}
-          className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded flex items-center gap-2"
-        >
-          <Download size={18} /> Descargar formato
-          <Tooltip text="Descarga la plantilla de Excel para registrar familias." color="white" />
-        </button>
-        <button
-          onClick={() => router.push('/dashboard/familias/nuevo')}
-          className="bg-[#7d4f2b] hover:bg-[#5e3c1f] text-white px-6 py-2 rounded"
-        >
-          Nueva familia
-        </button>
-      </div>
+      {/* === MODALES === */}
 
-      {/* 📂 Modal resultado carga masiva */}
-      {uploadResult && (
-        <div className="fixed inset-0 z-50 bg-black bg-opacity-40 flex items-center justify-center px-4">
-          <div className="bg-white rounded-lg shadow-md p-6 max-w-lg w-full text-center relative">
-            <button
-              onClick={() => setUploadResult(null)}
-              className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
-            >
+      {/* Modal: Confirmar eliminación */}
+      {familiaSeleccionada && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-lg p-6 max-w-md w-full relative">
+            <button onClick={closeModal} className="absolute top-4 right-4 text-gray-500">
               <X size={20} />
             </button>
-
-            <h2 className="text-xl font-semibold mb-4 text-[#7d4f2b]">
-              Resultado de la carga masiva
-            </h2>
-
-            <p className="text-sm text-gray-700 mb-2">
-              <strong>Status:</strong> {uploadResult.status}
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">Eliminar familia</h3>
+            <p className="text-gray-600 mb-6">
+              ¿Estás seguro de eliminar la familia de{' '}
+              <span className="font-medium text-[#7d4f2b]">{familiaSeleccionada.lider}</span>?
+              <br />
+              Esta acción no se puede deshacer.
             </p>
-            <p className="text-sm text-gray-700 mb-2">
-              <strong>Insertados:</strong> {uploadResult.insertados}
-            </p>
-            <p className="text-sm text-gray-700 mb-4">
-              <strong>Total procesados:</strong> {uploadResult.total_procesados}
-            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={closeModal}
+                className="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+              >
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
-            {uploadResult.errores && uploadResult.errores.length > 0 && (
-              <div className="text-left text-sm text-red-700 max-h-40 overflow-y-auto border-t pt-2">
+      {/* Modal: Resultado carga masiva */}
+      {uploadResult && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-lg p-6 max-w-lg w-full relative">
+            <button onClick={closeModal} className="absolute top-4 right-4 text-gray-500">
+              <X size={20} />
+            </button>
+            <h2 className="text-xl font-semibold text-[#2c3e50] mb-4">Resultado de la carga masiva</h2>
+            <div className="text-sm space-y-2 text-gray-700">
+              <p><strong>Status:</strong> {uploadResult.status}</p>
+              <p><strong>Insertados:</strong> {uploadResult.insertados}</p>
+              <p><strong>Total procesados:</strong> {uploadResult.total_procesados}</p>
+            </div>
+
+            {uploadResult.errores?.length > 0 && (
+              <div className="mt-4 text-left text-sm text-red-700 max-h-40 overflow-y-auto border-t pt-2">
                 <p className="font-semibold mb-2">Errores encontrados:</p>
                 <ul className="list-disc pl-5 space-y-1">
                   {uploadResult.errores.map((err, idx) => (
@@ -298,10 +541,10 @@ export default function FamiliaPage() {
               </div>
             )}
 
-            <div className="mt-6">
+            <div className="mt-6 text-right">
               <button
-                onClick={() => setUploadResult(null)}
-                className="bg-[#7d4f2b] text-white px-6 py-2 rounded hover:bg-[#5e3c1f]"
+                onClick={closeModal}
+                className="bg-[#7d4f2b] text-white px-5 py-2 rounded-lg hover:bg-[#5e3c1f]"
               >
                 Cerrar
               </button>
@@ -310,45 +553,38 @@ export default function FamiliaPage() {
         </div>
       )}
 
-      {/* Modal confirmación */}
-      {mostrarModalConfirmacion && familiaSeleccionada && (
-        <div className="fixed inset-0 z-50 bg-black bg-opacity-40 flex items-center justify-center px-4">
-          <div className="bg-white rounded-lg shadow-md p-6 max-w-md w-full text-center relative">
-            <p className="text-lg mb-6">
-              ¿Está seguro de querer eliminar la familia con ID{' '}
-              <strong>{familiaSeleccionada.id}</strong>?
-            </p>
-            <div className="flex justify-center gap-4">
+      {/* Modal: Éxito / Error */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-lg p-6 max-w-sm w-full relative">
+            <button onClick={closeModal} className="absolute top-4 right-4 text-gray-500">
+              <X size={20} />
+            </button>
+            <p className="text-gray-800 mb-6">{successMessage}</p>
+            <div className="text-center">
               <button
-                onClick={eliminarFamilia}
-                className="bg-[#7d4f2b] text-white px-5 py-2 rounded hover:bg-[#5e3c1f]"
+                onClick={() => {
+                  closeModal()
+                  fetchFamilias()
+                }}
+                className="bg-[#7d4f2b] text-white px-5 py-2 rounded-lg hover:bg-[#5e3c1f]"
               >
                 Aceptar
-              </button>
-              <button
-                onClick={cancelarEliminacion}
-                className="bg-gray-400 text-white px-5 py-2 rounded hover:bg-gray-500"
-              >
-                Cancelar
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal éxito / error */}
-      {mostrarModalExito && (
-        <div className="fixed inset-0 z-50 bg-black bg-opacity-40 flex items-center justify-center px-4">
-          <div className="bg-white rounded-lg shadow-md p-6 max-w-sm w-full text-center relative">
-            <p className="text-lg mb-6">{mensajeExito}</p>
-            <button
-              onClick={cerrarModalExito}
-              className="bg-[#7d4f2b] text-white px-6 py-2 rounded hover:bg-[#5e3c1f]"
-            >
-              Aceptar
-            </button>
-          </div>
-        </div>
+      {/* Modal: Crear familia */}
+      {showCrearFamiliaModal && (
+        <CrearFamiliaModal
+          onClose={() => setShowCrearFamiliaModal(false)}
+          onSuccess={() => {
+            setShowCrearFamiliaModal(false)
+            fetchFamilias()
+          }}
+        />
       )}
     </div>
   )

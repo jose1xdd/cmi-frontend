@@ -1,82 +1,34 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import { apiFetch } from '@/lib/api'
-import {
-  User,
-  Mail,
-  Calendar,
-  MapPin,
-  Phone,
-  GraduationCap,
-  Briefcase,
-  Users,
-  Building,
-  HelpCircle,
-} from 'lucide-react'
-import {
-  enumEscolaridad,
-  enumDocumento,
-  enumSexo,
-  enumParentesco,
-} from '@/constants/enums'
+import { User, Mail, Calendar, Users, Building, X, AlertCircle, Briefcase, GraduationCap } from 'lucide-react'
+import { enumDocumento, enumSexo, enumParentesco, enumEscolaridad } from '@/constants/enums'
+import { Tooltip } from '@/components/Tooltip'
 
-interface ParcialidadResponse {
-  items: Parcialidad[]
-}
-
-interface FamiliaResponse {
-  items: Familia[]
-}
-
-// Tipos
+// Asumiendo interfaces básicas, ajusta según tu estructura real
 interface Parcialidad {
   id: number
   nombre: string
 }
 
-interface Familia {
-  id: number
-  integrantes: number
+interface ParcialidadResponse {
+  items: Parcialidad[]
 }
 
-interface PersonaPayload {
-  id: string
-  tipoDocumento: string
-  nombre: string
-  apellido: string
-  fechaNacimiento: string
-  parentesco: string
-  sexo: string
-  profesion: string
-  escolaridad: string
-  direccion: string
-  telefono: string
-  idFamilia: number
-  idParcialidad: number
+interface PasoCrearPersonaLiderProps {
+  onCancelar: () => void // Callback para volver al menú principal del modal
+  onSuccess: any
 }
 
-interface FormularioPersonaPageProps {
-  idPersona?: string // si es edición
-  idFamilia?: number // si es para agregar a una familia existente
-  esNuevaFamilia?: boolean // indica si se está creando una nueva familia con ese usuario como lider
-  onClose: () => void
-  onSuccess: (idPersona: string) => void // <-- Cambia la firma para recibir el ID
-}
-
-export default function FormularioPersonaPage({
-  idPersona,
-  idFamilia,
-  esNuevaFamilia = false,
-  onClose,
-  onSuccess,
-}: FormularioPersonaPageProps) {
-  const esEdicion = !!idPersona
-
+export default function PasoCrearPersonaLider({
+  onCancelar,
+  onSuccess
+}: PasoCrearPersonaLiderProps) {
   const [data, setData] = useState({
     nombre: '',
     apellido: '',
-    tipoDocumento: '',
+    tipoDocumento: 'CC',
     identificacion: '',
     nacimiento: '',
     sexo: '',
@@ -84,67 +36,23 @@ export default function FormularioPersonaPage({
     telefono: '',
     escolaridad: '',
     profesion: '',
-    parentesco: '',
-    familia: idFamilia?.toString() || '', 
+    parentesco: 'PA', // Líder por defecto
     parcialidad: '',
   })
 
   const [parcialidades, setParcialidades] = useState<Parcialidad[]>([])
-  const [familias, setFamilias] = useState<Familia[]>([])
   const [loading, setLoading] = useState(false)
-  const [mensajeModal, setMensajeModal] = useState<string | null>(null)
+  const [mensajeError, setMensajeError] = useState<string | null>(null)
 
-  // Cargar datos si es edición
-  useEffect(() => {
-    if (esEdicion && idPersona) {
-      setLoading(true)
-      apiFetch<{
-        nombre: string
-        apellido: string
-        tipoDocumento: string
-        id: string
-        fechaNacimiento: string
-        sexo: string
-        direccion: string
-        telefono: string
-        escolaridad: string
-        profesion: string
-        parentesco: string
-        idFamilia?: number
-        parcialidad?: { id?: number }
-      }>(`/personas/${idPersona}`)
-        .then((res) => {
-          setData({
-            nombre: res.nombre,
-            apellido: res.apellido,
-            tipoDocumento: res.tipoDocumento,
-            identificacion: res.id,
-            nacimiento: res.fechaNacimiento,
-            sexo: res.sexo,
-            direccion: res.direccion,
-            telefono: res.telefono,
-            escolaridad: res.escolaridad,
-            profesion: res.profesion,
-            parentesco: res.parentesco,
-            familia: res.idFamilia?.toString() || '',
-            parcialidad: res.parcialidad?.id?.toString() || '',
-          })
-        })
-        .catch(() => setMensajeModal('Error al cargar los datos de la persona.'))
-        .finally(() => setLoading(false))
-    }
-  }, [esEdicion, idPersona])
-
-  // Cargar catálogos
+  // Cargar catálogos al montar
   useEffect(() => {
     const cargarCatalogos = async () => {
       try {
         const dataParcialidades = await apiFetch<ParcialidadResponse>('/parcialidad/?page=1&page_size=100')
-        setParcialidades(dataParcialidades.items)
-        const dataFamilias = await apiFetch<FamiliaResponse>('/familias/?page=1&page_size=100')
-        setFamilias(dataFamilias.items)
-      } catch {
-        setMensajeModal('Error al cargar opciones de parcialidad o familia.')
+        setParcialidades(dataParcialidades.items || [])
+      } catch (err) {
+        console.error('Error al cargar parcialidades', err)
+        setMensajeError('No se pudieron cargar las opciones de parcialidad.')
       }
     }
     cargarCatalogos()
@@ -154,83 +62,89 @@ export default function FormularioPersonaPage({
     setData((prev) => ({ ...prev, [key]: value }))
   }
 
-  const handleGuardar = async () => {
-    const requiredFields = ['nombre', 'apellido', 'tipoDocumento', 'identificacion', 'nacimiento', 'sexo']
-    for (const field of requiredFields) {
-      if (!data[field as keyof typeof data]?.trim()) {
-        setMensajeModal('Por favor complete todos los campos obligatorios.')
-        return
-      }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setMensajeError(null)
+    setLoading(true)
+
+    // Validación simple
+    if (!data.nombre || !data.apellido || !data.tipoDocumento || !data.identificacion || !data.nacimiento || !data.sexo || !data.direccion || !data.telefono) {
+      setMensajeError('Por favor completa todos los campos obligatorios.')
+      setLoading(false)
+      return
     }
 
-    setLoading(true)
     try {
-      const payload: PersonaPayload = {
+      // 1. Crear la persona
+      const payload = {
         id: data.identificacion,
         tipoDocumento: data.tipoDocumento,
         nombre: data.nombre,
         apellido: data.apellido,
         fechaNacimiento: data.nacimiento,
-        parentesco: data.parentesco,
+        parentesco: data.parentesco, // 'PA', 'MA', etc.
         sexo: data.sexo,
         profesion: data.profesion,
         escolaridad: data.escolaridad,
         direccion: data.direccion,
         telefono: data.telefono,
-        idFamilia: esNuevaFamilia ? null : (data.familia ? Number(data.familia) : idFamilia || null),
         idParcialidad: data.parcialidad ? Number(data.parcialidad) : 0,
       }
 
-      let nuevaPersonaId: string
+      const nuevaPersona = await apiFetch<any>('/personas/create', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      })
 
-      if (esEdicion) {
-        // Edición: usar idPersona
-        await apiFetch(`/personas/${idPersona}`, {
-          method: 'PUT',
-          body: JSON.stringify(payload),
-        })
-        nuevaPersonaId = idPersona // <-- En edición, el ID ya existe
-      } else {
-        // Creación: obtener ID de la respuesta
-        const nuevaPersona = await apiFetch<Persona>('/personas/create', {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        })
-        nuevaPersonaId = nuevaPersona.id // <-- Capturar el ID de la nueva persona
+      const familiaRes = await apiFetch<{ id: number }>(`/familias/create`, {
+        method: 'POST',
+        body: JSON.stringify({
+          "representante_id": data.identificacion,
+          "estado": "ACTIVA"
+        }),
+      })
+
+      const payload2 = {
+        familia_id: Number(familiaRes.data.id), // convertir a número si tu API espera integer
+        personas_id: [data.identificacion],       // arreglo de ids (strings según tu spec)
       }
 
-      onSuccess(nuevaPersonaId) // <-- Devolver el ID de la persona creada o editada
-    } catch (err: unknown) {
-      const msg = err && typeof err === 'object' && 'message' in err
-        ? (err as any).message
-        : 'Error al guardar la persona.'
-      setMensajeModal(msg)
+      const res = await apiFetch<{ success?: boolean; message?: string }>(
+        '/personas/assing-family',
+        {
+          method: 'PATCH',
+          body: JSON.stringify(payload2),
+        }
+      )
+
+      onSuccess()
+    } catch (err: any) {
+      console.error('Error al crear persona líder', err)
+      setMensajeError(err.message || 'Error al crear la persona.')
     } finally {
       setLoading(false)
     }
   }
 
-  // Tooltip reutilizable
-  const Tooltip = ({ text }: { text: string }) => (
-    <div className="relative group inline-block ml-1">
-      <HelpCircle className="w-4 h-4 text-[#7d4f2b] cursor-pointer" />
-      <div className="absolute hidden group-hover:block top-full left-1/2 -translate-x-1/2 mt-2 bg-black text-white text-xs rounded px-3 py-2 shadow-md min-w-[200px] max-w-sm text-left whitespace-normal z-20">
-        {text}
-      </div>
-    </div>
-  )
-
   return (
-    <div className="bg-white rounded-xl shadow-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-      {/* Encabezado */}
-      <div className="p-6 border-b border-gray-200">
-        <h2 className="text-xl font-bold text-[#2c3e50] text-center">
-          {esEdicion ? 'Editar persona' : 'Crear nueva persona'}
-        </h2>
+    <div className="p-6 space-y-6">
+      <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded-lg flex items-start gap-3">
+        <AlertCircle className="text-yellow-600 mt-0.5 flex-shrink-0" size={20} />
+        <div>
+          <h3 className="font-bold text-yellow-800">Crear nueva persona como líder</h3>
+          <p className="text-sm text-yellow-700 mt-1">
+            Se creará una nueva persona en el sistema que será designada como el líder de la nueva familia.
+          </p>
+        </div>
       </div>
 
-      {/* Formulario */}
-      <div className="p-6 space-y-6">
+      {mensajeError && (
+        <div className="text-sm p-3 rounded-lg bg-red-50 text-red-700">
+          {mensajeError}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Tipo Documento */}
           <div>
@@ -244,7 +158,6 @@ export default function FormularioPersonaPage({
               onChange={(e) => handleInputChange('tipoDocumento', e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-gray-800 focus:ring-2 focus:ring-[#7d4f2b] focus:border-transparent"
             >
-              <option value="">Seleccionar</option>
               {Object.entries(enumDocumento).map(([code, label]) => (
                 <option key={code} value={code}>
                   {label}
@@ -257,16 +170,15 @@ export default function FormularioPersonaPage({
           <div>
             <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
               <User size={16} className="text-[#7d4f2b]" />
-              Identificación *
-              <Tooltip text="Número único de identificación. En edición no puede cambiarse." />
+              Número de Documento *
+              <Tooltip text="Número único de identificación de la persona." />
             </label>
             <input
+              type="text"
               value={data.identificacion}
               onChange={(e) => handleInputChange('identificacion', e.target.value)}
-              disabled={esEdicion}
-              className={`w-full border border-gray-300 rounded-lg px-4 py-2.5 text-gray-800 focus:ring-2 focus:ring-[#7d4f2b] focus:border-transparent ${
-                esEdicion ? 'bg-gray-100 cursor-not-allowed' : ''
-              }`}
+              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-gray-800 focus:ring-2 focus:ring-[#7d4f2b] focus:border-transparent"
+              placeholder="Ej: 123456789"
             />
           </div>
 
@@ -274,13 +186,15 @@ export default function FormularioPersonaPage({
           <div>
             <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
               <User size={16} className="text-[#7d4f2b]" />
-              Nombre *
+              Nombres *
               <Tooltip text="Escribe el nombre completo de la persona." />
             </label>
             <input
+              type="text"
               value={data.nombre}
               onChange={(e) => handleInputChange('nombre', e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-gray-800 focus:ring-2 focus:ring-[#7d4f2b] focus:border-transparent"
+              placeholder="Ej: José"
             />
           </div>
 
@@ -288,21 +202,23 @@ export default function FormularioPersonaPage({
           <div>
             <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
               <User size={16} className="text-[#7d4f2b]" />
-              Apellido *
+              Apellidos *
               <Tooltip text="Escribe los apellidos de la persona." />
             </label>
             <input
+              type="text"
               value={data.apellido}
               onChange={(e) => handleInputChange('apellido', e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-gray-800 focus:ring-2 focus:ring-[#7d4f2b] focus:border-transparent"
+              placeholder="Ej: Castillo Paguay"
             />
           </div>
 
-          {/* Fecha nacimiento */}
+          {/* Fecha Nacimiento */}
           <div>
             <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
               <Calendar size={16} className="text-[#7d4f2b]" />
-              Fecha nacimiento *
+              Fecha de Nacimiento *
               <Tooltip text="Selecciona la fecha de nacimiento de la persona." />
             </label>
             <input
@@ -337,28 +253,32 @@ export default function FormularioPersonaPage({
           {/* Dirección */}
           <div className="md:col-span-2">
             <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-              <MapPin size={16} className="text-[#7d4f2b]" />
+              <Building size={16} className="text-[#7d4f2b]" />
               Dirección *
               <Tooltip text="Dirección de residencia de la persona." />
             </label>
             <input
+              type="text"
               value={data.direccion}
               onChange={(e) => handleInputChange('direccion', e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-gray-800 focus:ring-2 focus:ring-[#7d4f2b] focus:border-transparent"
+              placeholder="Ej: Vereda El Carmen, Consacá"
             />
           </div>
 
           {/* Teléfono */}
           <div>
             <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-              <Phone size={16} className="text-[#7d4f2b]" />
+              <User size={16} className="text-[#7d4f2b]" />
               Teléfono *
               <Tooltip text="Número de contacto de la persona." />
             </label>
             <input
+              type="text"
               value={data.telefono}
               onChange={(e) => handleInputChange('telefono', e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-gray-800 focus:ring-2 focus:ring-[#7d4f2b] focus:border-transparent"
+              placeholder="Ej: +57 320 123 4567"
             />
           </div>
 
@@ -391,62 +311,32 @@ export default function FormularioPersonaPage({
               <Tooltip text="Profesión u ocupación principal de la persona." />
             </label>
             <input
+              type="text"
               value={data.profesion}
               onChange={(e) => handleInputChange('profesion', e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-gray-800 focus:ring-2 focus:ring-[#7d4f2b] focus:border-transparent"
+              placeholder="Ej: Agricultor"
             />
           </div>
 
-          {/* Parentesco */}
+          {/* Parentesco (Líder predeterminado) */}
           <div>
             <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
               <Users size={16} className="text-[#7d4f2b]" />
               Parentesco *
-              <Tooltip text="Relación de la persona con la familia registrada (padre, madre, hijo, etc.)." />
+              <Tooltip text="Relación de la persona con la familia. Selecciona 'Padre/Madre' para el líder." />
             </label>
             <select
               value={data.parentesco}
               onChange={(e) => handleInputChange('parentesco', e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-gray-800 focus:ring-2 focus:ring-[#7d4f2b] focus:border-transparent"
             >
-              <option value="">Seleccionar</option>
               {Object.entries(enumParentesco).map(([code, label]) => (
                 <option key={code} value={code}>
                   {label}
                 </option>
               ))}
             </select>
-          </div>
-
-          {/* Familia */}
-          <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-              <Users size={16} className="text-[#7d4f2b]" />
-              Familia
-              <Tooltip text="Selecciona la familia a la que pertenece esta persona." />
-            </label>
-            <select
-              value={data.familia}
-              onChange={(e) => handleInputChange('familia', e.target.value)}
-              // Deshabilitar si idFamilia fue pasado como prop
-              disabled={!!idFamilia}
-              className={`w-full border border-gray-300 rounded-lg px-4 py-2.5 text-gray-800 focus:ring-2 focus:ring-[#7d4f2b] focus:border-transparent ${
-                idFamilia ? 'bg-gray-100 cursor-not-allowed' : ''
-              }`}
-            >
-              <option value="">Seleccionar familia</option>
-              {familias.map((f) => (
-                <option key={f.id} value={f.id}>
-                  Familia {f.id} ({f.integrantes} integrantes)
-                </option>
-              ))}
-            </select>
-            {/* Mensaje informativo si está deshabilitado */}
-            {idFamilia && (
-              <p className="text-xs text-gray-500 mt-1">
-                Este campo está bloqueado porque la persona se agregará a la familia #{idFamilia}.
-              </p>
-            )}
           </div>
 
           {/* Parcialidad */}
@@ -472,39 +362,23 @@ export default function FormularioPersonaPage({
         </div>
 
         {/* Botones */}
-        <div className="flex justify-center gap-4 pt-4">
+        <div className="flex justify-end gap-3 pt-4">
           <button
             type="button"
-            onClick={onClose}
+            onClick={onCancelar}
             className="px-5 py-2.5 text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors"
           >
-            Cancelar
+            Volver
           </button>
           <button
-            type="button"
-            onClick={handleGuardar}
+            type="submit"
             disabled={loading}
             className="px-5 py-2.5 bg-[#7d4f2b] text-white rounded-lg hover:bg-[#5e3c1f] disabled:opacity-50 transition-colors"
           >
-            {loading ? 'Guardando...' : esEdicion ? 'Actualizar' : 'Guardar'}
+            {loading ? 'Creando...' : 'Crear Persona y Continuar'}
           </button>
         </div>
-      </div>
-
-      {/* Modal de mensaje */}
-      {mensajeModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-md p-6 max-w-sm w-full text-center">
-            <p className="text-gray-800 mb-4">{mensajeModal}</p>
-            <button
-              onClick={() => setMensajeModal(null)}
-              className="bg-[#7d4f2b] text-white px-5 py-2 rounded-lg hover:bg-[#5e3c1f]"
-            >
-              Aceptar
-            </button>
-          </div>
-        </div>
-      )}
+      </form>
     </div>
   )
 }

@@ -1,5 +1,7 @@
 import './globals.css'
 import { AuthProvider } from '@/context/AuthContext'
+import '@mantine/core/styles.css'
+import '@mantine/dates/styles.css'
 
 export const metadata = {
   title: 'Comunidad Indígena Quillacinga',

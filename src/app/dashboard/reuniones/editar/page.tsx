@@ -3,7 +3,9 @@
 import { useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api'
-import { HelpCircle } from 'lucide-react'
+import { BookMarked, Copy, HelpCircle, KeyRound, Lightbulb, LightbulbIcon, PencilLine, Recycle, Users } from 'lucide-react'
+import { Reunion } from '@/types/reuniones'
+import { LiaGithub } from 'react-icons/lia'
 
 /* Tooltip reutilizable */
 function Tooltip({
@@ -43,9 +45,8 @@ interface PersonasResponse {
   items: UsuarioAsistencia[]
 }
 
-export default function FormularioReunionPage() {
+export default function FormularioReunionPage({ reunionId }: { reunionId: number | null }) {
   const searchParams = useSearchParams()
-  const reunionId = searchParams.get('id')
 
   const [titulo, setTitulo] = useState('')
   const [fecha, setFecha] = useState('')
@@ -53,6 +54,7 @@ export default function FormularioReunionPage() {
   const [horaFin, setHoraFin] = useState('')
   const [ubicacion, setUbicacion] = useState('')
   const [editable, setEditable] = useState(true)
+  const [descripcion ,setDescripcion] = useState('')
 
   const [usuarios, setUsuarios] = useState<UsuarioAsistencia[]>([])
   const [page, setPage] = useState(1)
@@ -276,176 +278,205 @@ export default function FormularioReunionPage() {
     }
   }
 
-  return (
-    <div>
-      <h1 className="text-2xl sm:text-3xl font-semibold mb-6 text-[#333] flex items-center">
-        Editar reunión
+return (
+  <div className="max-w-6xl mx-auto p-4 sm:p-6 space-y-8">
+    {/* Encabezado */}
+    <div className="flex items-center justify-between">
+      <h1 className="text-2xl sm:text-3xl font-bold text-[#2c3e50] flex items-center gap-2">
+        <PencilLine size={30} /> Editar reunión
         <Tooltip text="Modifica la información básica de la reunión, administra usuarios y controla la asistencia." />
       </h1>
+    </div>
 
-      {/* Botones superiores */}
-      <div className="mb-6 flex flex-wrap gap-4 justify-end items-center">
-        <button
-          onClick={descargarReporte}
-          className="bg-[#7d4f2b] text-white px-6 py-2 rounded hover:bg-[#5e3c1f]"
-        >
-          Descargar reporte de asistencia
-        </button>
-        <button
-          onClick={actualizarReunion}
-          className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
-        >
-          Actualizar reunión
-        </button>
-        <button
-          onClick={cerrarReunion}
-          disabled={!editable}
-          className="bg-red-600 text-white px-6 py-2 rounded hover:bg-red-700 disabled:opacity-50"
-        >
-          Cerrar reunión
-        </button>
-        <Tooltip text="Al cerrar la reunión, nadie podrá marcar asistencia automáticamente ni manualmente." responsive />
+    {/* Sección: Información de la reunión */}
+    <section className="form-section bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+      <div className="section-title mb-5">
+        <h2 className="text-xl font-semibold text-[#2c3e50] flex items-center gap-2">
+          <BookMarked size={20} /> Información de la Reunión
+        </h2>
       </div>
 
-      {/* Datos básicos */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
+      <div className="space-y-4">
+        {/* Título */}
         <div>
-          <label className="block text-sm text-gray-700 mb-1">Título</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Título de la Reunión *</label>
           <input
             value={titulo}
-            onChange={e => setTitulo(e.target.value)}
-            className="w-full border border-[#7d4f2b] rounded px-3 py-2 text-sm text-gray-700"
+            onChange={(e) => setTitulo(e.target.value)}
+            className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-700 focus:ring-2 focus:ring-[#7d4f2b] focus:border-transparent"
+            placeholder="Ej: Asamblea Comunitaria"
           />
         </div>
-        <div>
-          <label className="block text-sm text-gray-700 mb-1">Fecha</label>
-          <input
-            type="date"
-            value={fecha}
-            onChange={e => setFecha(e.target.value)}
-            className="w-full border border-[#7d4f2b] rounded px-3 py-2 text-sm text-gray-700"
-          />
+
+        {/* Fecha y Hora (en fila en pantallas grandes) */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Fecha *</label>
+            <input
+              type="date"
+              value={fecha}
+              onChange={(e) => setFecha(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-700 focus:ring-2 focus:ring-[#7d4f2b] focus:border-transparent"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Hora inicio *</label>
+            <input
+              type="time"
+              value={horaInicio}
+              onChange={(e) => setHoraInicio(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-700 focus:ring-2 focus:ring-[#7d4f2b] focus:border-transparent"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Hora fin *</label>
+            <input
+              type="time"
+              value={horaFin}
+              onChange={(e) => setHoraFin(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-700 focus:ring-2 focus:ring-[#7d4f2b] focus:border-transparent"
+            />
+          </div>
         </div>
+
+        {/* Ubicación */}
         <div>
-          <label className="block text-sm text-gray-700 mb-1">Hora inicio</label>
-          <input
-            type="time"
-            value={horaInicio}
-            onChange={e => setHoraInicio(e.target.value)}
-            className="w-full border border-[#7d4f2b] rounded px-3 py-2 text-sm text-gray-700"
-          />
-        </div>
-        <div>
-          <label className="block text-sm text-gray-700 mb-1">Hora fin</label>
-          <input
-            type="time"
-            value={horaFin}
-            onChange={e => setHoraFin(e.target.value)}
-            className="w-full border border-[#7d4f2b] rounded px-3 py-2 text-sm text-gray-700"
-          />
-        </div>
-        <div>
-          <label className="block text-sm text-gray-700 mb-1">Ubicación</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Ubicación</label>
           <input
             value={ubicacion}
-            onChange={e => setUbicacion(e.target.value)}
-            className="w-full border border-[#7d4f2b] rounded px-3 py-2 text-sm text-gray-700"
+            onChange={(e) => setUbicacion(e.target.value)}
+            className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-700 focus:ring-2 focus:ring-[#7d4f2b] focus:border-transparent"
+            placeholder="Ej: Salón Comunal, Casa del Cabildo"
+          />
+        </div>
+
+        {/* Descripción / Agenda (añadido) */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Descripción / Agenda</label>
+          <textarea
+            value={descripcion}
+            onChange={(e) => setDescripcion(e.target.value)}
+            rows={4}
+            className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-700 focus:ring-2 focus:ring-[#7d4f2b] focus:border-transparent"
+            placeholder="Descripción de la reunión, temas a tratar, etc."
           />
         </div>
       </div>
+    </section>
 
-      {/* TOKEN */}
-      <div className="flex flex-col items-center mb-6">
-        {token ? (
-          <>
-            <div className="border-2 border-[#7d4f2b] px-8 py-4 text-2xl font-bold text-[#333] rounded flex items-center gap-2">
+    {/* Sección: Código de Acceso */}
+    <section className="form-section bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+      <div className="section-title mb-5">
+        <h2 className="text-xl font-semibold text-[#2c3e50] flex items-center gap-2">
+          <KeyRound size={20} /> Código de Acceso QR
+        </h2>
+      </div>
+
+      {token ? (
+        <div className="text-center space-y-4">
+          <div className="access-code-display">
+            <div className="text-sm text-gray-600 mb-1">Código Actual</div>
+            <div className="text-2xl font-bold text-[#2c3e50] bg-gray-100 inline-block px-6 py-3 rounded-lg border border-[#7d4f2b]">
               {token}
               <Tooltip text="Este es el código que los usuarios deben usar para registrar su asistencia." />
             </div>
+          </div>
+          <div className="flex justify-center gap-3 flex-wrap">
             <button
               onClick={desactivarToken}
               disabled={!editable}
-              className="bg-[#7d4f2b] text-white px-6 py-2 rounded hover:bg-[#5e3c1f] mt-2 disabled:opacity-50"
+              className="px-4 py-2 bg-[#7d4f2b] text-white rounded-lg hover:bg-[#5e3c1f] disabled:opacity-50 flex items-center gap-2"
             >
-              Desactivar token
+              <Copy size={20} className='text-red-600'/> Desactivar código
             </button>
-          </>
-        ) : (
+            <button
+              onClick={generarToken}
+              disabled={!editable}
+              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 disabled:opacity-50 flex items-center gap-2"
+            >
+              <Recycle size={20} className='text-blue-700'/> Generar nuevo
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="text-center">
           <button
             onClick={generarToken}
             disabled={loadingToken || !editable}
-            className="bg-[#7d4f2b] text-white px-6 py-2 rounded hover:bg-[#5e3c1f] disabled:opacity-50"
+            className="px-6 py-3 bg-[#7d4f2b] text-white rounded-lg hover:bg-[#5e3c1f] disabled:opacity-50 flex items-center gap-2 mx-auto"
           >
-            {loadingToken ? 'Generando...' : 'Generar token'}
+            {loadingToken ? '⏳ Generando...' : '➕ Generar código de acceso'}
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Lista usuarios */}
-      <h2 className="text-xl font-semibold mb-2 text-[#333] flex items-center">
-        Usuarios
-        <Tooltip text="Lista de personas asociadas a la reunión. Puedes filtrar y marcar asistencia." />
-      </h2>
+      <div className="mt-4 text-center text-sm text-gray-600 bg-blue-50 p-3 rounded-lg flex items-center justify-center gap-2">
+        <LightbulbIcon size={23} className='text-yellow-500'/> Los asistentes pueden ingresar este código para registrar su asistencia a la reunión.
+      </div>
+    </section>
+
+    {/* Sección: Gestión de Asistentes */}
+    <section className="form-section bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+      <div className="section-title mb-5">
+        <h2 className="text-xl font-semibold text-[#2c3e50] flex items-center gap-2">
+          <Users size={20} className='text-blue-700'/> Gestión de Asistentes
+        </h2>
+      </div>
 
       {/* Filtros */}
-      <div className="mb-4 flex flex-col sm:flex-row gap-4">
-        <div className="flex flex-col">
-          <label className="block text-sm text-gray-700 mb-1">Nombre</label>
-          <input
-            type="text"
-            placeholder="Buscar por nombre..."
-            value={filtroNombre}
-            onChange={e => {
-              setPage(1)
-              setFiltroNombre(e.target.value)
-            }}
-            className="border border-[#7d4f2b] rounded px-3 py-2 text-sm text-gray-700 max-w-xs"
-          />
-        </div>
-        <div className="flex flex-col">
-          <label className="block text-sm text-gray-700 mb-1">Apellido</label>
-          <input
-            type="text"
-            placeholder="Buscar por apellido..."
-            value={filtroApellido}
-            onChange={e => {
-              setPage(1)
-              setFiltroApellido(e.target.value)
-            }}
-            className="border border-[#7d4f2b] rounded px-3 py-2 text-sm text-gray-700 max-w-xs"
-          />
+      <div className="mb-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <input
+              type="text"
+              placeholder="🔍 Buscar por nombre o documento..."
+              value={filtroNombre}
+              onChange={(e) => {
+                setPage(1);
+                setFiltroNombre(e.target.value);
+              }}
+              className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-700 focus:ring-2 focus:ring-[#7d4f2b] focus:border-transparent"
+            />
+          </div>
+          <div>
+            <input
+              type="text"
+              placeholder="Buscar por apellido..."
+              value={filtroApellido}
+              onChange={(e) => {
+                setPage(1);
+                setFiltroApellido(e.target.value);
+              }}
+              className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-700 focus:ring-2 focus:ring-[#7d4f2b] focus:border-transparent"
+            />
+          </div>
         </div>
       </div>
 
-      {/* Tabla */}
-      <div className="overflow-x-auto border rounded mb-6">
-        <table className="min-w-full">
+      {/* Tabla de asistentes */}
+      <div className="overflow-x-auto border rounded-lg">
+        <table className="min-w-full bg-white">
           <thead className="bg-[#7d4f2b] text-white">
             <tr>
-              <th className="px-4 py-2 text-left">Documento</th>
-              <th className="px-4 py-2 text-left">Nombre</th>
-              <th className="px-4 py-2 text-left">Apellido</th>
-              <th className="px-4 py-2 text-center">Asistencia</th>
+              <th className="px-4 py-3 text-left text-sm font-medium">Documento</th>
+              <th className="px-4 py-3 text-left text-sm font-medium">Nombre</th>
+              <th className="px-4 py-3 text-left text-sm font-medium">Apellido</th>
+              <th className="px-4 py-3 text-center text-sm font-medium">Asistencia</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-gray-100">
             {usuarios.map((u, i) => (
-              <tr
-                key={u.Numero_documento}
-                className={i % 2 === 0 ? 'bg-gray-50' : 'bg-white'}
-              >
-                <td className="px-4 py-2">{u.Numero_documento}</td>
-                <td className="px-4 py-2">{u.Nombre}</td>
-                <td className="px-4 py-2">{u.Apellido}</td>
-                <td className="px-4 py-2 text-center">
+              <tr key={u.Numero_documento} className={i % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                <td className="px-4 py-3 text-gray-800">{u.Numero_documento}</td>
+                <td className="px-4 py-3 text-gray-800">{u.Nombre}</td>
+                <td className="px-4 py-3 text-gray-800">{u.Apellido}</td>
+                <td className="px-4 py-3 text-center">
                   <input
                     type="checkbox"
                     checked={u.Asistencia}
-                    onChange={() =>
-                      toggleAsistencia(u.Numero_documento, u.Asistencia)
-                    }
+                    onChange={() => toggleAsistencia(u.Numero_documento, u.Asistencia)}
                     disabled={!editable}
-                    className="w-4 h-4 accent-[#7d4f2b] cursor-pointer disabled:opacity-50"
+                    className="w-5 h-5 accent-[#7d4f2b] cursor-pointer disabled:opacity-50"
                   />
                 </td>
               </tr>
@@ -458,52 +489,85 @@ export default function FormularioReunionPage() {
       <div className="flex justify-between items-center mt-4">
         <button
           disabled={page <= 1}
-          onClick={() => setPage(p => p - 1)}
-          className="px-4 py-2 rounded bg-[#7d4f2b] text-white disabled:opacity-50"
+          onClick={() => setPage((p) => p - 1)}
+          className="px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-50"
         >
           Anterior
         </button>
-        <span>
+        <span className="text-gray-600">
           Página {page} de {totalPages}
         </span>
         <button
           disabled={page >= totalPages}
-          onClick={() => setPage(p => p + 1)}
-          className="px-4 py-2 rounded bg-[#7d4f2b] text-white disabled:opacity-50"
+          onClick={() => setPage((p) => p + 1)}
+          className="px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-50"
         >
           Siguiente
         </button>
       </div>
 
-      {/* Modal de éxito */}
-      {modalExito && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg shadow-md p-6 max-w-sm w-full text-center">
-            <p className="text-lg mb-6">{modalExito}</p>
-            <button
-              onClick={() => setModalExito(null)}
-              className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded"
-            >
-              Aceptar
-            </button>
+      {/* Resumen de asistencia + botones */}
+      <div className="mt-6 p-4 bg-gray-50 rounded-lg flex flex-col sm:flex-row justify-between items-center gap-4">
+        {usuarios.length > 0 && (
+          <div className="text-sm font-medium text-[#2c3e50]">
+            <strong>Resumen de Asistencia:</strong>
+            <span className="text-green-600 ml-4">✅ {usuarios.filter(u => u.Asistencia).length} Presentes</span>
+            <span className="text-red-600 ml-4">❌ {usuarios.filter(u => !u.Asistencia).length} Ausentes</span>
+            <span className="text-gray-700 ml-4">📊 Total: {usuarios.length}</span>
           </div>
+        )}
+        <div className="flex gap-3 flex-wrap justify-center">
+          <button
+            onClick={descargarReporte}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+          >
+            📊 Descargar reporte
+          </button>
+          <button
+            onClick={actualizarReunion}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+          >
+            💾 Actualizar reunión
+          </button>
+          <button
+            onClick={cerrarReunion}
+            disabled={!editable}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-2"
+          >
+            🔒 Cerrar reunión
+          </button>
         </div>
-      )}
+      </div>
+    </section>
 
-      {/* Modal de error */}
-      {modalError && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg shadow-md p-6 max-w-sm w-full text-center">
-            <p className="text-lg mb-6 text-red-600">{modalError}</p>
-            <button
-              onClick={() => setModalError(null)}
-              className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded"
-            >
-              Cerrar
-            </button>
-          </div>
+    {/* Modales */}
+    {modalExito && (
+      <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center">
+        <div className="bg-white rounded-xl shadow-lg p-6 max-w-sm w-full text-center">
+          <p className="text-lg mb-4">{modalExito}</p>
+          <button
+            onClick={() => setModalExito(null)}
+            className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg"
+          >
+            Aceptar
+          </button>
         </div>
-      )}
-    </div>
-  )
+      </div>
+    )}
+
+    {modalError && (
+      <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center">
+        <div className="bg-white rounded-xl shadow-lg p-6 max-w-sm w-full text-center">
+          <p className="text-lg mb-4 text-red-600">{modalError}</p>
+          <button
+            onClick={() => setModalError(null)}
+            className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    )}
+  </div>
+);
 }

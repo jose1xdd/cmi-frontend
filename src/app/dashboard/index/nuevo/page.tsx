@@ -1,170 +1,297 @@
 'use client'
 
-import { useState, ChangeEvent } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { apiFetch } from '@/lib/api'
+import { Plus, FileText, X, AlertCircle, Image as ImageIcon, Save, Loader2 } from 'lucide-react'
+import { Tooltip } from '@/components/Tooltip'
 import Image from 'next/image'
 
-export default function NuevaPublicacionPage() {
+// Interfaces
+interface Foto {
+  id: number
+}
+
+interface Publicacion {
+  id: number
+  titulo: string
+  contenido: string
+  fotos: Foto[]
+}
+
+interface FormularioPublicacionModalProps {
+  publicacion?: Publicacion // Si se pasa, es edición
+  onClose: () => void
+  onSuccess: () => void
+}
+
+export default function FormularioPublicacionModal({
+  publicacion, // Puede ser undefined si es creación
+  onClose,
+  onSuccess,
+}: FormularioPublicacionModalProps) {
+  const esEdicion = !!publicacion
+
   const [titulo, setTitulo] = useState('')
   const [contenido, setContenido] = useState('')
   const [imagen, setImagen] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const router = useRouter()
+  const [mensajeError, setMensajeError] = useState<string | null>(null)
 
-  // 📌 Límite de 5 MB
+  // Cargar datos si es edición
+  useEffect(() => {
+    if (esEdicion && publicacion) {
+      setTitulo(publicacion.titulo)
+      setContenido(publicacion.contenido)
+      // Cargar la primera imagen como preview si existe
+      if (publicacion.fotos.length > 0) {
+        const cargarImagen = async () => {
+          try {
+            const blob = await apiFetch<Blob>(`/index/index/${publicacion.fotos[0].id}`, {
+              responseType: 'blob',
+            })
+            setPreviewUrl(URL.createObjectURL(blob))
+          } catch (err) {
+            console.error('Error al cargar imagen de la publicación', err)
+          }
+        }
+        cargarImagen()
+      }
+    }
+  }, [esEdicion, publicacion])
+
   const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
 
-  const handleImagenChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleImagenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
 
     if (file && file.size > MAX_FILE_SIZE) {
-      alert('La imagen no puede superar los 5 MB')
-      e.target.value = '' // resetear input
+      setMensajeError('La imagen no puede superar los 5 MB.')
+      e.target.value = '' // Resetear input
       return
     }
 
     setImagen(file || null)
     if (file) {
       setPreviewUrl(URL.createObjectURL(file))
-    } else {
+    } else if (!esEdicion) {
+      // Si es creación y se limpia la imagen, resetear preview
       setPreviewUrl(null)
     }
+    // Si es edición y se limpia la imagen, dejar la existente
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!imagen) {
-      alert('Debes seleccionar una foto')
+    setMensajeError(null)
+
+    if (!titulo.trim() || !contenido.trim()) {
+      setMensajeError('Por favor completa el título y el contenido.')
       return
     }
 
+    // Si es edición y no se subió una nueva imagen, se mantiene la existente
+    if (!imagen && !esEdicion) {
+      setMensajeError('Debes seleccionar una imagen.')
+      return
+    }
+
+    setLoading(true)
+
     try {
-      setLoading(true)
-      const token = localStorage.getItem('token')
-      if (!token) throw new Error('Sesión expirada')
-
-      const formData = new FormData()
-      formData.append('titulo', titulo)
-      formData.append('contenido', contenido)
-      formData.append('fotos', imagen)
-
-      const BASE_URL =
-        process.env.NEXT_PUBLIC_API_BASE_URL ||
-        'http://148.113.175.43:8080/cmi-apigateway'
-
-      const res = await fetch(`${BASE_URL}/index/index/create`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      })
-
-      if (!res.ok) {
-        const text = await res.text()
-        throw new Error(text || 'Error al crear publicación')
+      const data = {
+        titulo: titulo,
+        contenido: contenido,
       }
 
-      alert('Publicación creada con éxito')
-      router.push('/dashboard/index')
-    } catch (err) {
-      console.error(err)
-      alert('No se pudo crear la publicación')
+      let res
+      if (esEdicion && publicacion) {
+        // PUT /index/index/{id}
+        res = await apiFetch<{ estado: string; message: string }>(
+          `/index/index/${publicacion.id}`,
+          {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data),
+          }
+        )
+
+      if (imagen) {
+        const formDataImagen = new FormData()
+        formDataImagen.append('fotos', imagen)
+
+        const fotoRes = await apiFetch<{ estado: string; message: string }>(
+          `/index/index/${publicacion.id}/fotos`,
+          {
+            method: 'POST',
+            body: formDataImagen,
+          }
+        )
+        
+        console.log('Foto agregada:', fotoRes)
+      }
+      } else {
+        const formData = new FormData()
+        formData.append('titulo', titulo)
+        formData.append('contenido', contenido)
+        // POST /index/index/create
+        if (imagen) {
+          formData.append('fotos', imagen) // Asumiendo que el backend acepta `fotos` como archivo
+        }
+        res = await apiFetch<{ estado: string; message: string }>(
+          '/index/index/create',
+          {
+            method: 'POST',
+            body: formData,
+          }
+        )
+      }
+
+      if (res.estado === 'Exitoso') {
+        onSuccess()
+      } else {
+        setMensajeError(res.message || 'Error al guardar la publicación.')
+      }
+    } catch (err: any) {
+      console.error('Error al guardar publicación', err)
+      setMensajeError(err.message || 'Error inesperado al guardar.')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="p-8">
-      <h1 className="text-3xl font-semibold text-center mb-8">Agregar publicación</h1>
-      <form
-        onSubmit={handleSubmit}
-        className="bg-[#dddddd] rounded-2xl max-w-4xl mx-auto p-8 flex flex-col gap-8"
-        style={{ boxShadow: '0 4px 18px rgba(0,0,0,0.07)' }}
-      >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-          {/* Columna izquierda */}
-          <div className="flex flex-col gap-4">
-            <div>
-              <label className="block mb-1 text-base text-[#444]">Título</label>
-              <input
-                value={titulo}
-                onChange={e => setTitulo(e.target.value)}
-                required
-                className="w-full border border-[#9c5a25] rounded-lg p-2 bg-white"
-                placeholder="Título de la publicación"
-              />
+    <div className="fixed inset-0 z-50 bg-black bg-opacity-40 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-lg w-full max-w-3xl max-h-[90vh] flex flex-col">
+        {/* Encabezado */}
+        <div className="p-5 border-b border-gray-200 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-[#7d4f2b] flex items-center justify-center">
+              <Plus className="w-4 h-4 text-white" />
             </div>
-            <div>
-              <label className="block mb-1 text-base text-[#444]">Contenido</label>
-              <textarea
-                value={contenido}
-                onChange={e => setContenido(e.target.value)}
-                required
-                className="w-full border border-[#9c5a25] rounded-lg p-2 bg-white min-h-[90px]"
-                placeholder="Contenido..."
-              />
+            <h2 className="text-lg font-bold text-[#2c3e50]">
+              {esEdicion ? 'Editar publicación' : 'Crear nueva publicación'}
+            </h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700"
+            aria-label="Cerrar"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Cuerpo del formulario */}
+        <form onSubmit={handleSubmit} className="p-5 flex-1 overflow-y-auto space-y-6">
+          {/* Mensaje de error global */}
+          {mensajeError && (
+            <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm flex items-start gap-2">
+              <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
+              {mensajeError}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+            {/* Columna izquierda: Título y Contenido */}
+            <div className="space-y-4">
+              <div>
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                  <FileText size={16} className="text-[#7d4f2b]" />
+                  Título *
+                  <Tooltip text="Título de la publicación." />
+                </label>
+                <input
+                  type="text"
+                  value={titulo}
+                  onChange={(e) => setTitulo(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-gray-800 focus:ring-2 focus:ring-[#7d4f2b] focus:border-transparent"
+                  placeholder="Ej: Asamblea General del Mes"
+                />
+              </div>
+
+              <div>
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                  <FileText size={16} className="text-[#7d4f2b]" />
+                  Contenido *
+                  <Tooltip text="Contenido o descripción de la publicación." />
+                </label>
+                <textarea
+                  value={contenido}
+                  onChange={(e) => setContenido(e.target.value)}
+                  rows={6}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-gray-800 focus:ring-2 focus:ring-[#7d4f2b] focus:border-transparent"
+                  placeholder="Escribe el contenido de la publicación aquí..."
+                />
+              </div>
+            </div>
+
+            {/* Columna derecha: Imagen */}
+            <div className="flex flex-col h-full">
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                <ImageIcon size={16} className="text-[#7d4f2b]" />
+                Imagen *
+                <Tooltip text="Sube una imagen representativa para la publicación." />
+              </label>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 flex items-center justify-center min-h-[200px] relative overflow-hidden">
+                {previewUrl ? (
+                  <div className="relative w-full h-full">
+                    <Image
+                      src={previewUrl}
+                      alt="Vista previa"
+                      fill
+                      className="object-contain p-2"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center p-4 text-center text-gray-400">
+                    <ImageIcon size={48} className="mb-2" />
+                    <p className="text-sm">Haz clic para seleccionar una imagen</p>
+                    <p className="text-xs mt-1">Tamaño máximo: 5 MB</p>
+                  </div>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImagenChange}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  aria-label="Subir imagen"
+                />
+              </div>
             </div>
           </div>
 
-          {/* Columna derecha */}
-          <div className="flex flex-col h-full">
-            <label className="block mb-1 text-base text-[#444]">Foto</label>
-            <div className="w-full border border-[#9c5a25] rounded-lg bg-white flex items-center justify-center min-h-[170px] relative">
-              {previewUrl ? (
-                <Image
-                  src={previewUrl}
-                  alt="Preview"
-                  width={210}
-                  height={140}
-                  style={{ objectFit: 'cover', width: '210px', height: '140px' }}
-                  className="rounded-lg"
-                />
+          {/* Botones */}
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2.5 text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-4 py-2.5 bg-[#7d4f2b] text-white rounded-lg hover:bg-[#5e3c1f] disabled:opacity-50 transition-colors flex items-center gap-2"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="animate-spin" size={18} />
+                  {esEdicion ? 'Actualizando...' : 'Creando...'}
+                </>
               ) : (
-                <div className="flex flex-col items-center">
-                  <svg
-                    width={80}
-                    height={80}
-                    fill="none"
-                    stroke="#b18b66"
-                    strokeWidth={2}
-                    viewBox="0 0 24 24"
-                  >
-                    <rect x="3" y="3" width="18" height="18" rx="3" />
-                    <circle cx="8.5" cy="8.5" r="1.5" />
-                    <path d="M21 15l-5-5-4 4-2-2-5 5" />
-                  </svg>
-                  <span className="text-sm text-gray-400 mt-2">
-                    Sin imagen seleccionada
-                  </span>
-                </div>
+                <>
+                  <Save size={18} />
+                  {esEdicion ? 'Actualizar' : 'Crear'}
+                </>
               )}
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImagenChange}
-                className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
-                aria-label="Subir foto"
-              />
-            </div>
-            {/* Mensaje de tamaño máximo permitido */}
-            <span className="text-xs text-gray-500 mt-2">
-              Tamaño máximo permitido: 5 MB
-            </span>
+            </button>
           </div>
-        </div>
-        <div className="flex justify-center mt-4">
-          <button
-            type="submit"
-            disabled={loading}
-            className="bg-[#9c5a25] hover:bg-[#7b4317] text-white px-8 py-2 rounded-lg text-lg font-medium flex items-center gap-2 transition-colors disabled:opacity-50"
-          >
-            {loading ? 'Agregando...' : 'Agregar publicación'}
-          </button>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   )
 }

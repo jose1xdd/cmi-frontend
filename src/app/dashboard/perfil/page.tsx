@@ -3,12 +3,10 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { jwtDecode } from 'jwt-decode'
-import PerfilAdmin from './components/PerfilAdmin'
-import PerfilUsuario from './components/PerfilUsuario'
 import { apiFetch } from '@/lib/api'
 import type { JwtPayload } from '@/types/auth'
+import VistaPerfil from './components/VistaPerfilAdmin'
 
-// Respuesta real del backend
 interface PersonaResponse {
   id: string
   tipoDocumento: string
@@ -26,12 +24,12 @@ interface PersonaResponse {
   parcialidad: { id: number; nombre: string } | null 
 }
 
-
 export default function PerfilPage() {
   const [tipoUsuario, setTipoUsuario] = useState<'admin' | 'usuario' | null>(null)
   const [persona, setPersona] = useState<PersonaResponse | null>(null)
-  const [correo, setCorreo] = useState<string>('') // el correo viene del claim
+  const [correo, setCorreo] = useState<string>('')
   const [loading, setLoading] = useState(true)
+  const [actualizado, setActualizado] = useState(1)
   const router = useRouter()
 
   useEffect(() => {
@@ -57,7 +55,11 @@ export default function PerfilPage() {
     } catch {
       router.replace('/login')
     }
-  }, [router])
+  }, [router, actualizado])
+
+  const recargarPerfil = () => {
+    setActualizado(prev => prev + 1)
+  }
 
   if (loading) {
     return (
@@ -69,43 +71,24 @@ export default function PerfilPage() {
 
   if (!tipoUsuario || !persona) return null
 
-  if (tipoUsuario === 'admin') {
-    return (
-      <PerfilAdmin
-        data={{
-          nombre: persona.nombre,
-          apellido: persona.apellido,
-          tipoDocumento: persona.tipoDocumento,
-          identificacion: persona.id,
-          nacimiento: persona.fechaNacimiento,
-          sexo: persona.sexo,
-          direccion: persona.direccion,
-          correo: correo,
-          telefono: persona.telefono,
-          escolaridad: persona.escolaridad,
-          profesion: persona.profesion,
-          parentesco: persona.parentesco,
-          integrantes: '0',
-          familia: persona.idFamilia ? String(persona.idFamilia) : '', 
-          parcialidad: persona.parcialidad ? String(persona.parcialidad.id) : '',
-        }}
-      />
-    )
+  // Preparar los datos para VistaPerfil
+  const perfilData = {
+    nombre: persona.nombre,
+    apellido: persona.apellido,
+    tipoDocumento: persona.tipoDocumento,
+    identificacion: persona.id,
+    nacimiento: persona.fechaNacimiento,
+    sexo: persona.sexo,
+    direccion: persona.direccion,
+    correo: correo,
+    telefono: persona.telefono,
+    escolaridad: persona.escolaridad || '',
+    profesion: persona.profesion || '',
+    parentesco: persona.parentesco || '',
+    familia: persona.idFamilia || '',
+    parcialidad: persona.parcialidad?.nombre || '',
+    rol: tipoUsuario,
   }
 
-  return (
-    <PerfilUsuario
-      data={{
-        nombre: persona.nombre,
-        apellido: persona.apellido,
-        tipoDocumento: persona.tipoDocumento,
-        identificacion: persona.id,
-        nacimiento: persona.fechaNacimiento,
-        sexo: persona.sexo,
-        direccion: persona.direccion,
-        correo: correo,
-        telefono: persona.telefono,
-      }}
-    />
-  )
+  return <VistaPerfil data={perfilData} recargarDatos={recargarPerfil}/>
 }

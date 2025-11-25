@@ -45,7 +45,8 @@ export default function LoginPage() {
       const payload = jwtDecode<JwtPayload>(data.jwt)
       localStorage.setItem('tipoUsuario', payload.role)
 
-      router.push('/dashboard/perfil')
+      // Redirigir al dashboard principal en lugar del perfil
+      router.push('/dashboard/dashboard')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error en el inicio de sesión')
     } finally {

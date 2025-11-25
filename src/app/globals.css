@@ -1,3 +1,8 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+/* app/globals.css */
+@import 'react-datepicker/dist/react-datepicker.css';
+
+/* tus estilos globales */
+html,body { height: 100%; }

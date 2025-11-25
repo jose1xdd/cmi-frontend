@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { apiFetch } from '@/lib/api'
+import { FileText, Download, BarChart3 } from 'lucide-react'
+import { Tooltip } from '@/components/Tooltip'
 
 export default function InformesPage() {
   const [loading, setLoading] = useState(false)
@@ -32,33 +34,51 @@ export default function InformesPage() {
   }
 
   return (
-    <div className="flex flex-col items-center w-full text-center px-4">
-      {/* Texto arriba */}
-      <div className="mt-8 mb-10">
-        <h1 className="text-2xl sm:text-3xl font-bold mb-4 text-[#222]">
-          Informes en el formato del censo
-        </h1>
-        <p className="text-gray-600 max-w-2xl mx-auto">
-          Aquí puedes descargar el informe en formato Excel con la información consolidada
-          de todas las personas registradas en el sistema. El archivo contiene los datos
-          estructurados tal como se solicitan en el censo oficial.
-        </p>
+    <div className="space-y-8 max-w-4xl mx-auto px-4">
+      {/* Encabezado */}
+      <div className="bg-white p-6 rounded-xl shadow-md">
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-[#7d4f2b] text-white mb-4">
+            <BarChart3 className="w-7 h-7" />
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-[#2c3e50] mb-3">
+            Informes en el formato del censo
+          </h1>
+          <p className="text-gray-600 max-w-2xl mx-auto">
+            Descarga el informe en formato Excel con la información consolidada de todas las personas
+            registradas en el sistema. Los datos están estructurados según los requisitos del censo oficial.
+          </p>
+        </div>
       </div>
 
-      {/* Botón centrado en la pantalla */}
-      <div className="flex flex-col items-center justify-center min-h-[50vh] w-full">
-        <form
-          onSubmit={handleDescargar}
-          className="flex flex-col items-center gap-6 w-full"
-        >
+      {/* Panel de acción */}
+      <div className="bg-white p-8 rounded-xl shadow-md flex flex-col items-center">
+        <div className="text-center mb-6">
+          <FileText className="w-12 h-12 text-[#7d4f2b] mx-auto mb-3" />
+          <h2 className="text-xl font-semibold text-[#2c3e50]">Informe consolidado</h2>
+          <p className="text-gray-600 mt-2">
+            Archivo en formato <strong>.xlsx</strong> listo para entregar
+          </p>
+        </div>
+
+        <form onSubmit={handleDescargar} className="w-full max-w-xs">
           <button
             type="submit"
             disabled={loading}
-            className="bg-[#9c5a25] hover:bg-[#7b4317] text-white font-bold px-12 py-3 rounded-lg text-lg shadow-sm transition-colors disabled:opacity-60"
+            className="relative overflow-hidden w-full bg-[#7d4f2b] text-white font-medium px-6 py-3.5 rounded-lg text-base transition-all duration-300 group hover:shadow-lg hover:-translate-y-0.5"
           >
-            {loading ? 'Descargando...' : 'Descargar informe'}
+            <span className="absolute inset-0 bg-gradient-to-r from-[#5e3c1f] to-[#7d4f2b] opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+            <div className="flex items-center justify-center gap-2 relative z-10">
+              <Download size={18} className="stroke-[3]" />
+              <span>{loading ? 'Descargando...' : 'Descargar informe'}</span>
+            </div>
           </button>
         </form>
+      </div>
+
+      {/* Instrucciones adicionales (opcional) */}
+      <div className="text-center text-sm text-gray-500">
+        <p>El archivo descargado contendrá todos los datos personales registrados hasta la fecha.</p>
       </div>
     </div>
   )

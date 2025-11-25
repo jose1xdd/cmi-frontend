@@ -1,46 +1,23 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Trash, Search, Upload, X, Download, HelpCircle } from 'lucide-react'
+import {
+  Users,
+  Search,
+  Trash2,
+  Upload,
+  Download,
+  Plus,
+  X,
+  FileText,
+} from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
+import { Tooltip } from '@/components/Tooltip'
+import { AnimatedFilterField } from '@/components/AnimatedFilterField'
+import CrearParcialidadModal from './nuevo/page'
 
-/* Hook para debounce */
-function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState(value)
-
-  useEffect(() => {
-    const handler = setTimeout(() => setDebouncedValue(value), delay)
-    return () => clearTimeout(handler)
-  }, [value, delay])
-
-  return debouncedValue
-}
-
-/* Tooltip reutilizable */
-function Tooltip({
-  text,
-  color = '#7d4f2b',
-  responsive = false,
-}: {
-  text: string
-  color?: string
-  responsive?: boolean
-}) {
-  return (
-    <div className="relative group inline-block ml-1">
-      <HelpCircle className="w-4 h-4 cursor-pointer" style={{ color }} />
-      <div
-        className={`absolute hidden group-hover:block top-[120%] left-1/2 -translate-x-1/2
-                    bg-black text-white text-xs rounded px-3 py-2 shadow-md text-left whitespace-normal z-50
-                    ${responsive ? 'max-w-[80vw] sm:max-w-xs break-words' : 'min-w-[200px] max-w-xs'}`}
-      >
-        {text}
-      </div>
-    </div>
-  )
-}
-
+// Tipos
 interface Parcialidad {
   id: number
   nombre: string
@@ -71,39 +48,32 @@ export default function ParcialidadesPage() {
 
   const [parcialidades, setParcialidades] = useState<Parcialidad[]>([])
   const [parcialidadSeleccionada, setParcialidadSeleccionada] = useState<Parcialidad | null>(null)
-
-  const [mostrarModalConfirmacion, setMostrarModalConfirmacion] = useState(false)
-  const [mostrarModalExito, setMostrarModalExito] = useState(false)
-  const [mensajeExito, setMensajeExito] = useState('')
+  const [showCrearParcialidadModal, setShowCrearParcialidadModal] = useState(false)
 
   const [loading, setLoading] = useState(false)
-
   const [page, setPage] = useState(1)
-  const pageSize = 10
   const [totalPages, setTotalPages] = useState(1)
 
   const [busqueda, setBusqueda] = useState('')
-  const debouncedBusqueda = useDebounce(busqueda, 500)
-
-  // carga masiva
   const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [successMessage, setSuccessMessage] = useState('')
 
+  // === Cargar parcialidades ===
   const fetchParcialidades = async () => {
     setLoading(true)
     try {
       const params = new URLSearchParams({
         page: page.toString(),
-        page_size: pageSize.toString(),
+        page_size: '10',
       })
-      if (debouncedBusqueda) {
-        params.append('nombre', debouncedBusqueda)
-      }
+      if (busqueda) params.append('nombre', busqueda)
 
       const data = await apiFetch<ParcialidadResponse>(`/parcialidad/?${params.toString()}`)
       setParcialidades(data.items)
       setTotalPages(data.total_pages || 1)
-    } catch (error) {
-      console.error('Error cargando parcialidades:', error)
+    } catch (err) {
+      console.error('Error cargando parcialidades', err)
     } finally {
       setLoading(false)
     }
@@ -111,53 +81,42 @@ export default function ParcialidadesPage() {
 
   useEffect(() => {
     fetchParcialidades()
-  }, [page, debouncedBusqueda])
+  }, [page, busqueda])
 
-  const confirmarEliminacion = (parcialidad: Parcialidad) => {
-    setParcialidadSeleccionada(parcialidad)
-    setMostrarModalConfirmacion(true)
-  }
+  // === Eliminación ===
+  const handleDelete = (parcialidad: Parcialidad) => setParcialidadSeleccionada(parcialidad)
 
-  const cancelarEliminacion = () => {
-    setParcialidadSeleccionada(null)
-    setMostrarModalConfirmacion(false)
-  }
+  const confirmDelete = async () => {
+    if (!parcialidadSeleccionada) return
+    try {
+      const res = await apiFetch<{ estado: string; message: string }>(
+        `/parcialidad/${parcialidadSeleccionada.id}`,
+        { method: 'DELETE' }
+      )
 
-  const eliminarParcialidad = async () => {
-    if (parcialidadSeleccionada) {
-      try {
-        const res = await apiFetch<{ estado: string; message: string; data: string }>(
-          `/parcialidad/${parcialidadSeleccionada.id}`,
-          { method: 'DELETE' }
-        )
-
-        if (res.estado === 'Exitoso') {
-          setMensajeExito('La parcialidad ha sido eliminada con éxito')
-          setMostrarModalExito(true)
-        } else {
-          setMensajeExito(res.message || 'Error eliminando parcialidad')
-          setMostrarModalExito(true)
-        }
-      } catch {
-        setMensajeExito('Error eliminando parcialidad')
-        setMostrarModalExito(true)
-      } finally {
-        setParcialidadSeleccionada(null)
-        setMostrarModalConfirmacion(false)
+      if (res.estado === 'Exitoso') {
+        setSuccessMessage('La parcialidad ha sido eliminada con éxito')
+      } else {
+        setSuccessMessage(res.message || 'Error al eliminar la parcialidad')
       }
+    } catch {
+      setSuccessMessage('Error inesperado al eliminar la parcialidad')
+    } finally {
+      setParcialidadSeleccionada(null)
+      setShowSuccessModal(true)
     }
   }
 
-  const cerrarModalExito = async () => {
-    setMostrarModalExito(false)
-    await fetchParcialidades()
+  const closeModal = () => {
+    setParcialidadSeleccionada(null)
+    setShowSuccessModal(false)
+    setUploadResult(null)
   }
 
-  // subir excel
+  // === Carga masiva ===
   const handleUploadExcel = async (file: File) => {
     const formData = new FormData()
     formData.append('file', file)
-
     try {
       const res = await apiFetch<UploadResponse>('/parcialidad/upload-excel', {
         method: 'POST',
@@ -176,150 +135,182 @@ export default function ParcialidadesPage() {
   }
 
   return (
-    <div className="p-4 sm:p-8">
-      <h1 className="text-2xl sm:text-3xl font-semibold mb-6 text-[#333] flex items-center">
-        Parcialidades
-        <Tooltip text="Aquí puedes gestionar las parcialidades registradas en el sistema." />
-      </h1>
+    <div>
+      {/* Encabezado y controles */}
+      <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-5">
+          <h1 className="text-2xl sm:text-3xl font-semibold text-[#333] flex items-center gap-2">
+            <Users size={25} className="text-[#7d4f2b]" />
+            Parcialidades
+            <Tooltip text="Aquí puedes gestionar las parcialidades registradas en el sistema." />
+          </h1>
 
-      {/* Buscador */}
-      <div className="relative w-full sm:max-w-xs mb-4 flex items-center">
-        <Search className="absolute left-3 top-2.5 text-[#7d4f2b]" size={18} />
-        <input
-          type="text"
-          placeholder="Buscar por nombre..."
+          <div className="flex flex-wrap gap-2">
+            {/* Carga masiva */}
+            <label className="relative overflow-hidden bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2 text-sm cursor-pointer transition-all duration-300 group hover:shadow-lg hover:-translate-y-[2px]">
+              <span className="absolute inset-0 bg-gradient-to-r from-green-700 to-green-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+              <Upload size={16} className="stroke-[3] relative z-10" />
+              <span className="relative z-10">Carga masiva</span>
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                className="hidden"
+                onChange={(e) => e.target.files?.[0] && handleUploadExcel(e.target.files[0])}
+              />
+              <Tooltip text="Sube un archivo Excel para registrar varias parcialidades a la vez." color='white'/>
+            </label>
+
+            {/* Descargar formato */}
+            <button
+              onClick={() => window.open('/plantillas/plantilla_parcialidades.xlsx', '_blank')}
+              className="relative overflow-hidden bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2 text-sm transition-all duration-300 group hover:shadow-lg hover:-translate-y-[2px]"
+            >
+              <span className="absolute inset-0 bg-gradient-to-r from-green-700 to-green-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+              <Download size={16} className="stroke-[3] relative z-10" />
+              <span className="relative z-10">Descargar formato</span>
+              <Tooltip text="Descarga la plantilla de Excel para registrar parcialidades." color='white'/>
+            </button>
+
+            {/* Nueva parcialidad */}
+            <button
+              onClick={() => setShowCrearParcialidadModal(true)}
+              className="relative overflow-hidden bg-[#7d4f2b] text-white px-4 py-2 rounded flex items-center gap-2 text-sm transition-all duration-300 group hover:shadow-lg hover:-translate-y-[2px]"
+            >
+              <span className="absolute inset-0 bg-gradient-to-r from-[#5e3c1f] to-[#7d4f2b] opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+              <Plus size={16} className="stroke-[3] relative z-10" />
+              <span className="relative z-10">Nueva parcialidad</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Filtro de búsqueda */}
+        <AnimatedFilterField
+          icon={Search}
+          label="Buscar por nombre"
           value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 border border-[#7d4f2b] rounded text-sm text-gray-700"
+          onChange={setBusqueda}
+          placeholder="Ej: San Juan"
+          texttooltip="Busca parcialidades escribiendo el nombre."
         />
-        <Tooltip text="Busca parcialidades escribiendo el nombre." />
       </div>
 
       {/* Tabla */}
-      <div className="overflow-x-auto border rounded mb-6">
-        <table className="min-w-full">
-          <thead className="bg-[#7d4f2b] text-white text-center">
-            <tr>
-              <th className="px-4 py-2">ID</th>
-              <th className="px-4 py-2">Nombre</th>
-              <th className="px-4 py-2">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
+      <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden mt-6">
+        <div className="overflow-x-auto max-h-[60vh]">
+          <table className="min-w-full">
+            <thead className="bg-[#7d4f2b] text-white sticky top-0 z-10">
               <tr>
-                <td colSpan={3} className="text-center py-6">
-                  Cargando...
-                </td>
+                <th className="px-5 py-3 text-center text-sm font-medium">ID</th>
+                <th className="px-5 py-3 text-center text-sm font-medium">Nombre</th>
+                <th className="px-5 py-3 text-center text-sm font-medium">Acciones</th>
               </tr>
-            ) : parcialidades.length === 0 ? (
-              <tr>
-                <td colSpan={3} className="text-center py-6">
-                  No se encontraron parcialidades
-                </td>
-              </tr>
-            ) : (
-              parcialidades.map((p, index) => (
-                <tr
-                  key={p.id}
-                  className={index % 2 === 0 ? 'bg-white' : 'bg-gray-100'}
-                >
-                  <td className="px-4 py-2 text-center">{p.id}</td>
-                  <td className="px-4 py-2 text-center">{p.nombre}</td>
-                  <td className="px-4 py-2 text-center">
-                    <button
-                      onClick={() => confirmarEliminacion(p)}
-                      className="text-[#7d4f2b] hover:text-red-600"
-                    >
-                      <Trash size={18} />
-                    </button>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={3} className="text-center py-6 text-gray-500">
+                    Cargando...
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : parcialidades.length === 0 ? (
+                <tr>
+                  <td colSpan={3} className="text-center py-6 text-gray-500">
+                    No se encontraron parcialidades
+                  </td>
+                </tr>
+              ) : (
+                parcialidades.map((p, index) => (
+                  <tr key={p.id} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                    <td className="px-5 py-3 text-center text-gray-800">{p.id}</td>
+                    <td className="px-5 py-3 text-center text-gray-800">{p.nombre}</td>
+                    <td className="px-5 py-3 text-center">
+                      <button
+                        onClick={() => handleDelete(p)}
+                        className="text-[#7d4f2b] hover:text-red-600 transition-colors"
+                        title="Eliminar parcialidad"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Paginación */}
-      <div className="flex justify-between items-center mt-6">
-        <button
-          disabled={page <= 1}
-          onClick={() => setPage((prev) => prev - 1)}
-          className="px-4 py-2 rounded bg-[#7d4f2b] text-white disabled:opacity-50"
-        >
-          Anterior
-        </button>
-        <span>Página {page} de {totalPages}</span>
-        <button
-          disabled={page >= totalPages}
-          onClick={() => setPage((prev) => prev + 1)}
-          className="px-4 py-2 rounded bg-[#7d4f2b] text-white disabled:opacity-50"
-        >
-          Siguiente
-        </button>
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-2">
+        <div className="text-sm text-gray-600">Página {page} de {totalPages}</div>
+        <div className="flex gap-2">
+          <button
+            disabled={page <= 1}
+            onClick={() => setPage((p) => p - 1)}
+            className="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300 disabled:opacity-50"
+          >
+            Anterior
+          </button>
+          <button
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+            className="px-4 py-2 rounded-lg bg-[#7d4f2b] text-white hover:bg-[#5e3c1f] disabled:opacity-50"
+          >
+            Siguiente
+          </button>
+        </div>
       </div>
 
-      {/* Botones */}
-      <div className="flex justify-end mt-6 gap-3">
-        <label className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded flex items-center gap-2 cursor-pointer">
-          <Upload size={18} /> Carga masiva (Excel)
-          <Tooltip text="Sube un archivo Excel para registrar varias parcialidades a la vez." color="white" />
-          <input
-            type="file"
-            accept=".xlsx,.xls"
-            className="hidden"
-            onChange={(e) => {
-              if (e.target.files && e.target.files[0]) {
-                handleUploadExcel(e.target.files[0])
-              }
-            }}
-          />
-        </label>
-        <button
-          onClick={() => window.open('/plantillas/plantilla_parcialidades.xlsx', '_blank')}
-          className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded flex items-center gap-2"
-        >
-          <Download size={18} /> Descargar formato
-          <Tooltip text="Descarga la plantilla de Excel para registrar parcialidades." color="white" />
-        </button>
-        <button
-          onClick={() => router.push('/dashboard/parcialidades/nuevo')}
-          className="bg-[#7d4f2b] hover:bg-[#5e3c1f] text-white px-6 py-2 rounded"
-        >
-          Nueva parcialidad
-        </button>
-      </div>
+      {/* === Modales === */}
 
-      {/* === Modales existentes se mantienen tal cual === */}
-
-      {/* Modal resultado carga masiva */}
-      {uploadResult && (
-        <div className="fixed inset-0 z-50 bg-black bg-opacity-40 flex items-center justify-center px-4">
-          <div className="bg-white rounded-lg shadow-md p-6 max-w-lg w-full text-center relative">
-            <button
-              onClick={() => setUploadResult(null)}
-              className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
-            >
+      {/* Modal: Confirmar eliminación */}
+      {parcialidadSeleccionada && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-lg p-6 max-w-md w-full relative">
+            <button onClick={closeModal} className="absolute top-4 right-4 text-gray-500">
               <X size={20} />
             </button>
-
-            <h2 className="text-xl font-semibold mb-4 text-[#7d4f2b]">
-              Resultado de la carga masiva
-            </h2>
-
-            <p className="text-sm text-gray-700 mb-2">
-              <strong>Status:</strong> {uploadResult.status}
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">Eliminar parcialidad</h3>
+            <p className="text-gray-600 mb-6">
+              ¿Estás seguro de eliminar la parcialidad{' '}
+              <span className="font-medium text-[#7d4f2b]">{parcialidadSeleccionada.nombre}</span>?
+              <br />
+              Esta acción no se puede deshacer.
             </p>
-            <p className="text-sm text-gray-700 mb-2">
-              <strong>Insertados:</strong> {uploadResult.insertados}
-            </p>
-            <p className="text-sm text-gray-700 mb-4">
-              <strong>Total procesados:</strong> {uploadResult.total_procesados}
-            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={closeModal}
+                className="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+              >
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
-            {uploadResult.errores && uploadResult.errores.length > 0 && (
-              <div className="text-left text-sm text-red-700 max-h-40 overflow-y-auto border-t pt-2">
+      {/* Modal: Resultado carga masiva */}
+      {uploadResult && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-lg p-6 max-w-lg w-full relative">
+            <button onClick={closeModal} className="absolute top-4 right-4 text-gray-500">
+              <X size={20} />
+            </button>
+            <h2 className="text-xl font-semibold text-[#2c3e50] mb-4">Resultado de la carga masiva</h2>
+            <div className="text-sm space-y-2 text-gray-700">
+              <p><strong>Status:</strong> {uploadResult.status}</p>
+              <p><strong>Insertados:</strong> {uploadResult.insertados}</p>
+              <p><strong>Total procesados:</strong> {uploadResult.total_procesados}</p>
+            </div>
+
+            {uploadResult.errores?.length > 0 && (
+              <div className="mt-4 text-left text-sm text-red-700 max-h-40 overflow-y-auto border-t pt-2">
                 <p className="font-semibold mb-2">
                   Se encontraron {uploadResult.errores.length} errores:
                 </p>
@@ -333,10 +324,10 @@ export default function ParcialidadesPage() {
               </div>
             )}
 
-            <div className="mt-6">
+            <div className="mt-6 text-right">
               <button
-                onClick={() => setUploadResult(null)}
-                className="bg-[#7d4f2b] text-white px-6 py-2 rounded hover:bg-[#5e3c1f]"
+                onClick={closeModal}
+                className="bg-[#7d4f2b] text-white px-5 py-2 rounded-lg hover:bg-[#5e3c1f]"
               >
                 Cerrar
               </button>
@@ -345,45 +336,38 @@ export default function ParcialidadesPage() {
         </div>
       )}
 
-      {/* Modal confirmación */}
-      {mostrarModalConfirmacion && parcialidadSeleccionada && (
-        <div className="fixed inset-0 z-50 bg-black bg-opacity-40 flex items-center justify-center px-4">
-          <div className="bg-white rounded-lg shadow-md p-6 max-w-md w-full text-center relative">
-            <p className="text-lg mb-6">
-              ¿Está seguro de querer eliminar la parcialidad{' '}
-              <strong>{parcialidadSeleccionada.nombre}</strong>?
-            </p>
-            <div className="flex justify-center gap-4">
+      {/* Modal: Éxito / Error general */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-lg p-6 max-w-sm w-full relative">
+            <button onClick={closeModal} className="absolute top-4 right-4 text-gray-500">
+              <X size={20} />
+            </button>
+            <p className="text-gray-800 mb-6">{successMessage}</p>
+            <div className="text-center">
               <button
-                onClick={eliminarParcialidad}
-                className="bg-[#7d4f2b] text-white px-5 py-2 rounded hover:bg-[#5e3c1f]"
+                onClick={() => {
+                  closeModal()
+                  fetchParcialidades()
+                }}
+                className="bg-[#7d4f2b] text-white px-5 py-2 rounded-lg hover:bg-[#5e3c1f]"
               >
                 Aceptar
-              </button>
-              <button
-                onClick={cancelarEliminacion}
-                className="bg-gray-400 text-white px-5 py-2 rounded hover:bg-gray-500"
-              >
-                Cancelar
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal éxito */}
-      {mostrarModalExito && (
-        <div className="fixed inset-0 z-50 bg-black bg-opacity-40 flex items-center justify-center px-4">
-          <div className="bg-white rounded-lg shadow-md p-6 max-w-sm w-full text-center relative">
-            <p className="text-lg mb-6">{mensajeExito}</p>
-            <button
-              onClick={cerrarModalExito}
-              className="bg-[#7d4f2b] text-white px-6 py-2 rounded hover:bg-[#5e3c1f]"
-            >
-              Aceptar
-            </button>
-          </div>
-        </div>
+      {/* Modal para crear nueva parcialidad */}
+      {showCrearParcialidadModal && (
+        <CrearParcialidadModal
+          onClose={() => setShowCrearParcialidadModal(false)}
+          onSuccess={() => {
+            setShowCrearParcialidadModal(false)
+            fetchParcialidades() // Recarga la lista
+          }}
+        />
       )}
     </div>
   )

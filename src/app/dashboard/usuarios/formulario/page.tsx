@@ -1,8 +1,9 @@
 'use client'
 
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api'
+import { Mail, User, Shield } from 'lucide-react'
 
 interface UsuarioSistema {
   email: string
@@ -19,18 +20,24 @@ interface Persona {
 interface ApiResponse {
   estado: string
   message: string
-  data: string
+  data?: string
 }
 
-export default function FormularioUsuarioSistemaPage() {
-  const searchParams = useSearchParams()
-  const router = useRouter()
+interface FormularioUsuarioSistemaPageProps {
+  onClose: () => void;
+  onSuccess: () => void;
+  email?: string; // ← nuevo prop opcional
+}
 
-  const emailParam = searchParams.get('email') || undefined
-  const esEdicion = !!emailParam
+export default function FormularioUsuarioSistemaPage({
+  onClose,
+  onSuccess,
+  email: emailProp,
+}: FormularioUsuarioSistemaPageProps) {
+  const searchParams = useSearchParams();
+  const emailParam = emailProp || searchParams.get('email') || undefined;
+  const esEdicion = !!emailParam;
 
-  const [showModal, setShowModal] = useState(false)
-  const [modalMessage, setModalMessage] = useState<string>('')
   const [data, setData] = useState<UsuarioSistema>({
     email: '',
     personaId: '',
@@ -39,52 +46,45 @@ export default function FormularioUsuarioSistemaPage() {
 
   const [personasDisponibles, setPersonasDisponibles] = useState<Persona[]>([])
   const [loadingPersonas, setLoadingPersonas] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [mensajeModal, setMensajeModal] = useState<string | null>(null)
 
-  // cargar datos si es edición
+  // Cargar datos si es edición
   useEffect(() => {
     if (esEdicion && emailParam) {
+      setLoading(true)
       apiFetch<UsuarioSistema>(`/${encodeURIComponent(emailParam)}`)
-        .then((res) =>
+        .then((res) => {
           setData({
             email: res.email,
             personaId: res.personaId,
             rol: res.rol,
           })
-        )
-        .catch(() => console.error('Error cargando usuario'))
+        })
+        .catch(() => {
+          setMensajeModal('Error al cargar los datos del usuario.')
+        })
+        .finally(() => setLoading(false))
     }
   }, [esEdicion, emailParam])
 
-  // cargar personas sin usuario (solo en creación)
+  // Cargar personas disponibles (solo en creación)
   useEffect(() => {
     if (!esEdicion) {
-      const fetchData = async () => {
-        setLoadingPersonas(true)
-        try {
-          const personas = await apiFetch<{ items: Persona[] }>(
-            '/personas/?page=1&page_size=100'
-          )
-          const usuarios = await apiFetch<{ items: UsuarioSistema[] }>(
-            '/?page=1&page_size=100'
-          )
-
-          const personaIdsConUsuario = new Set(
-            usuarios.items.map((u) => u.personaId)
-          )
-
-          const disponibles = personas.items.filter(
-            (p) => !personaIdsConUsuario.has(p.id)
-          )
-
+      setLoadingPersonas(true)
+      Promise.all([
+        apiFetch<{ items: Persona[] }>('/personas/?page=1&page_size=100'),
+        apiFetch<{ items: UsuarioSistema[] }>('/?page=1&page_size=100'),
+      ])
+        .then(([personasRes, usuariosRes]) => {
+          const personaIdsConUsuario = new Set(usuariosRes.items.map((u) => u.personaId))
+          const disponibles = personasRes.items.filter((p) => !personaIdsConUsuario.has(p.id))
           setPersonasDisponibles(disponibles)
-        } catch (err) {
-          console.error('Error cargando personas disponibles', err)
-        } finally {
-          setLoadingPersonas(false)
-        }
-      }
-
-      fetchData()
+        })
+        .catch(() => {
+          setMensajeModal('Error al cargar las personas disponibles.')
+        })
+        .finally(() => setLoadingPersonas(false))
     }
   }, [esEdicion])
 
@@ -93,6 +93,12 @@ export default function FormularioUsuarioSistemaPage() {
   }
 
   const handleGuardar = async () => {
+    if (!data.email || (!esEdicion && !data.personaId)) {
+      setMensajeModal('Por favor complete todos los campos obligatorios.')
+      return
+    }
+
+    setLoading(true)
     try {
       let response: ApiResponse
       if (esEdicion && emailParam) {
@@ -111,101 +117,113 @@ export default function FormularioUsuarioSistemaPage() {
         })
       }
 
-      setModalMessage(response.message || 'Operación realizada con éxito')
-      setShowModal(true)
+      setMensajeModal(response.message || 'Operación realizada con éxito.')
+      setTimeout(() => {
+        onSuccess() // Recarga la lista y cierra el modal
+      }, 500)
     } catch (err: unknown) {
-      const errorMessage =
-        err && typeof err === 'object' && 'message' in err && typeof (err as { message?: string }).message === 'string'
-          ? (err as { message: string }).message
-          : 'Error al guardar el usuario'
-      setModalMessage(errorMessage)
-      setShowModal(true)
+      const msg =
+        err && typeof err === 'object' && 'message' in err && typeof err.message === 'string'
+          ? err.message
+          : 'Error inesperado al guardar el usuario.'
+      setMensajeModal(msg)
+    } finally {
+      setLoading(false)
     }
   }
 
-  const closeModal = () => {
-    setShowModal(false)
-    router.push('/dashboard/usuarios')
-  }
-
   return (
-    <div className="w-full px-4 pt-5">
-      <div className="max-w-xl mx-auto space-y-8">
-        <h2 className="text-2xl font-bold text-center text-[#7d4f2b]">
+    <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto relative">
+      {/* Encabezado */}
+      <div className="p-6 border-gray-200">
+        <h2 className="text-xl font-bold text-[#2c3e50] text-center">
           {esEdicion ? 'Editar usuario del sistema' : 'Crear nuevo usuario del sistema'}
         </h2>
+      </div>
 
-        <div className="grid grid-cols-1 gap-6">
-          {/* Email */}
-          <div>
-            <label className="block text-sm text-[#7d4f2b] mb-1">Email</label>
-            <input
-              type="email"
-              value={data.email}
-              onChange={(e) => handleInputChange('email', e.target.value)}
-              className="w-full border border-[#7d4f2b] rounded px-3 py-2"
-            />
-          </div>
-
-          {/* PersonaId → solo en creación */}
-          <div>
-            <label className="block text-sm text-[#7d4f2b] mb-1">Persona ID</label>
-            {esEdicion ? (
-              <input
-                value={data.personaId}
-                disabled
-                className="w-full border border-[#7d4f2b] rounded px-3 py-2 bg-gray-100"
-              />
-            ) : (
-              <select
-                value={data.personaId}
-                onChange={(e) => handleInputChange('personaId', e.target.value)}
-                disabled={loadingPersonas}
-                className="w-full border border-[#7d4f2b] rounded px-3 py-2"
-              >
-                <option value="">Seleccione una persona</option>
-                {personasDisponibles.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.nombre} {p.apellido} ({p.id})
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-
-          {/* Rol → solo en creación */}
-          <div>
-            <label className="block text-sm text-[#7d4f2b] mb-1">Rol</label>
-            <select
-              value={data.rol}
-              onChange={(e) => handleInputChange('rol', e.target.value)}
-              disabled={esEdicion}
-              className={`w-full border border-[#7d4f2b] rounded px-3 py-2 ${esEdicion ? 'bg-gray-100' : ''}`}
-            >
-              <option value="usuario">Usuario</option>
-              <option value="admin">Admin</option>
-            </select>
-          </div>
+      {/* Formulario */}
+      <div className="p-6 space-y-5 form-section bg-gray-50 rounded-xl mb-5">
+        {/* Email */}
+        <div>
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+            <Mail size={16} className="text-[#7d4f2b]" />
+            Email *
+          </label>
+          <input
+            type="email"
+            value={data.email}
+            onChange={(e) => handleInputChange('email', e.target.value)}
+            className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-gray-800 focus:ring-2 focus:ring-[#7d4f2b] focus:border-transparent"
+            placeholder="usuario@ejemplo.com"
+          />
         </div>
 
-        <div className="flex justify-center mt-6">
-          <button
-            onClick={handleGuardar}
-            className="bg-[#7d4f2b] text-white px-6 py-2 rounded hover:bg-[#5e3c1f]"
+        {/* Persona ID */}
+        <div>
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+            <User size={16} className="text-[#7d4f2b]" />
+            {esEdicion ? 'Persona ID' : 'Persona ID *'}
+          </label>
+          <input
+            type="text"
+            inputMode="numeric" // Mejor UX en móviles: teclado numérico
+            value={data.personaId}
+            onChange={(e) => handleInputChange('personaId', e.target.value)}
+            disabled={esEdicion}
+            className={`w-full border border-gray-300 rounded-lg px-4 py-2.5 text-gray-800 focus:ring-2 focus:ring-[#7d4f2b] focus:border-transparent ${
+              esEdicion ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : ''
+            }`}
+            placeholder={esEdicion ? '' : 'Ej: 1002319256'}
+          />
+        </div>
+
+        {/* Rol */}
+        <div>
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+            <Shield size={16} className="text-[#7d4f2b]" />
+            Rol *
+          </label>
+          <select
+            value={data.rol}
+            onChange={(e) => handleInputChange('rol', e.target.value)}
+            disabled={esEdicion}
+            className={`w-full border border-gray-300 rounded-lg px-4 py-2.5 text-gray-800 focus:ring-2 focus:ring-[#7d4f2b] focus:border-transparent ${
+              esEdicion ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : ''
+            }`}
           >
-            {esEdicion ? 'Actualizar usuario' : 'Guardar usuario'}
+            <option value="usuario">Usuario</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+
+        {/* Botones */}
+        <div className="flex justify-center gap-4 pt-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-5 py-2.5 text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={handleGuardar}
+            disabled={loading}
+            className="px-5 py-2.5 bg-[#7d4f2b] text-white rounded-lg hover:bg-[#5e3c1f] disabled:opacity-50 transition-colors"
+          >
+            {loading ? 'Guardando...' : esEdicion ? 'Actualizar' : 'Guardar'}
           </button>
         </div>
       </div>
 
-      {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white px-8 py-6 rounded shadow-md w-96 text-center">
-            <p className="text-gray-800 mb-4">{modalMessage}</p>
+      {/* Modal de mensaje */}
+      {mensajeModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-md p-6 max-w-sm w-full text-center">
+            <p className="text-gray-800 mb-4">{mensajeModal}</p>
             <button
-              onClick={closeModal}
-              className="bg-[#7d4f2b] text-white px-6 py-2 rounded hover:bg-[#5e3c1f]"
+              onClick={() => setMensajeModal(null)}
+              className="bg-[#7d4f2b] text-white px-5 py-2 rounded-lg hover:bg-[#5e3c1f]"
             >
               Aceptar
             </button>
