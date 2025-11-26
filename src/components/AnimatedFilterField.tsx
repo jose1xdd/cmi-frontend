@@ -89,8 +89,8 @@ export function AnimatedFilterField({
           className={`w-full border-b-2 bg-transparent text-sm text-gray-800 outline-none appearance-none transition-all duration-300
             ${isActive ? 'pt-6 border-[#7d4f2b] opacity-100' : 'border-gray-200 pt-6 opacity-0'}`}
         >
-          {options?.map((opt) => (
-            <option key={opt.value} value={opt.value}>
+          {options?.map((opt, index) => (
+            <option key={`${opt.value}-${index}`} value={opt.value}>
               {opt.label}
             </option>
           ))}

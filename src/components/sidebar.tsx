@@ -42,14 +42,17 @@ export default function Sidebar({ tipoUsuario, onClose, isOpen = true }: Sidebar
         { label: 'Censo', icon: <FileSpreadsheet size={20} />, href: '/dashboard/censo' },
       ]
     : [
+        { label: 'Dashboard', icon: <BarChart3 size={20} />, href: '/dashboard/dashboard' },
         { label: 'Mi perfil', icon: <User size={20} />, href: '/dashboard/perfil' },
-        { label: 'Reuniones', icon: <Calendar size={20} />, href: '/dashboard/reuniones' },
+        { label: 'Personas', icon: <UserRound size={20} />, href: '/dashboard/personas' },
+        { label: 'Familias', icon: <HomeIcon size={20} />, href: '/dashboard/familias' },
+        { label: 'Parcialidades', icon: <Building size={20} />, href: '/dashboard/parcialidades' },
       ]
 
   const handleLogout = () => {
     localStorage.removeItem('token')
     sessionStorage.removeItem('token')
-    window.location.href = '/' // o router.push('/') si usas App Router
+    window.location.href = '/'
   }
 
   return (

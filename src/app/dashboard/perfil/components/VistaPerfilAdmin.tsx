@@ -3,8 +3,10 @@
 import { UserCircle, Mail, Phone, MapPin, Calendar, GraduationCap, Briefcase, Users, Building, Key } from 'lucide-react'
 import { enumDocumento, enumSexo, enumEscolaridad, enumParentesco } from '@/constants/enums'
 import EditarPerfilAdminModal from './EditAdmin'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import CambiarContrasenaModal from './CambiarContrasenaModal'
+import { apiFetch } from '@/lib/api'
+
 
 interface PerfilData {
   nombre: string
@@ -24,6 +26,16 @@ interface PerfilData {
   rol?: 'admin' | 'usuario'
 }
 
+interface Parcialidad {
+  id: number
+  nombre: string
+}
+
+interface Familia {
+  id: number
+  integrantes: number
+}
+
 interface VistaPerfilProps {
   data: PerfilData
   recargarDatos: () => void
@@ -32,6 +44,27 @@ interface VistaPerfilProps {
 export default function VistaPerfil({ data, recargarDatos }: VistaPerfilProps) {
   const [showEditModal, setShowEditModal] = useState(false)
   const [showCambiarContrasena, setShowCambiarContrasena] = useState(false)
+  const [parcialidades, setParcialidades] = useState<Parcialidad[]>([])
+  const [familias, setFamilias] = useState<Familia[]>([])
+  const [loadingCatalogos, setLoadingCatalogos] = useState(true)
+
+  useEffect(() => {
+    const cargarCatalogos = async () => {
+      try {
+        const respParcialidades = await apiFetch<{ items: Parcialidad[] }>('/parcialidad/?page=1&page_size=100')
+        const respFamilias = await apiFetch<{ items: Familia[] }>('/familias/?page=1&page_size=100')
+
+        setParcialidades(respParcialidades.items)
+        setFamilias(respFamilias.items)
+      } catch (e) {
+        console.error('Error cargando catálogos', e)
+      } finally {
+        setLoadingCatalogos(false)
+      }
+    }
+
+    cargarCatalogos()
+  }, [])
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -46,7 +79,7 @@ export default function VistaPerfil({ data, recargarDatos }: VistaPerfilProps) {
             {data.nombre} {data.apellido}
           </h1>
           <p className="text-[#f8f4f0] mt-1 uppercase text-sm font-medium">
-            {data.rol === 'admin' ? 'Administrador' : 'Usuario'}
+            {data.rol === 'admin' ? 'Administrador' : 'censador'}
           </p>
         </div>
 
@@ -177,12 +210,15 @@ export default function VistaPerfil({ data, recargarDatos }: VistaPerfilProps) {
 
       {showEditModal && (
         <EditarPerfilAdminModal
-            data={data}
-            onClose={() => setShowEditModal(false)}
-            onSuccess={() => {
+          data={data}
+          parcialidades={parcialidades}
+          familias={familias}
+          loadingCatalogos={loadingCatalogos}
+          onClose={() => setShowEditModal(false)}
+          onSuccess={() => {
             setShowEditModal(false)
             recargarDatos()
-            }}
+          }}
         />
       )}
 

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import * as XLSX from "xlsx"
 import { apiFetch } from '@/lib/api'
+import { QRCodeCanvas } from "qrcode.react";
 import {
   Users,
   X,
@@ -280,25 +281,10 @@ export default function DetalleReunionPage() {
     window.print()
   }
 
-  const handleDescargarQR = () => {
-    const link = document.createElement("a")
-    link.href = "/QR.png"      // Ruta dentro de /public
-    link.download = "QR.png"   // Nombre del archivo descargado
-    link.click()
-  }
-
 
   const cerrarModal = () => {
     setShowSuccessModal(false)
     setMensajeModal(null)
-  }
-
-  const formatearHora = (hora: string | undefined): string => {
-    if (!hora) return '—'
-    const [h, m] = hora.split(':')
-    const date = new Date()
-    date.setHours(parseInt(h, 10) || 0, parseInt(m, 10) || 0)
-    return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
   }
 
   // === JSX ===
@@ -333,6 +319,8 @@ export default function DetalleReunionPage() {
       </div>
     )
   }
+
+  const qrUrl = `https://quillacinga-consaca.ddns.net/formulario?id=${reunion.id}`;
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto px-4 py-8">
@@ -597,25 +585,52 @@ export default function DetalleReunionPage() {
         {/* Código QR */}
         <div className="bg-gradient-to-br from-[#8B5A3C] to-[#6D4428] p-6 rounded-xl text-center text-white">
           <h2 className="text-lg font-semibold mb-4">🔑 Código QR de Asistencia</h2>
+
           <div className="bg-white p-4 rounded-lg inline-block mb-4">
-            <div className="w-40 h-40 flex items-center justify-center bg-white">
-              <img src="/QR.png" alt="QR" className='w-50'/>
-            </div>
+            <QRCodeCanvas
+              value={qrUrl}
+              size={170}
+              bgColor="#FFFFFF"
+              fgColor="#000000"
+              level="H"
+              includeMargin={true}
+              className="w-40 h-40"
+            />
           </div>
-          <div className="text-2xl font-bold mb-2 font-mono tracking-widest">
-            {codigo}
-          </div>
+
           <p className="text-sm opacity-80 mb-4">
-            Escanea este código para registrar tu asistencia.
+            Escanea el código QR para registrar tu asistencia.
           </p>
+
           <div className="flex flex-wrap gap-2 justify-center">
+            {/* Copiar código manual */}
             <button
               onClick={handleCopiarCodigo}
               className="bg-white/20 text-white px-3 py-1.5 rounded text-xs font-medium hover:bg-white/30 transition-colors flex items-center gap-1"
             >
               <Copy size={14} />
-              Copiar
+              Copiar Código
             </button>
+
+            {/* Descargar QR generado */}
+            <button
+              onClick={() => {
+                const canvas = document.querySelector("canvas") as HTMLCanvasElement;
+                const pngUrl = canvas
+                  .toDataURL("image/png")
+                  .replace("image/png", "image/octet-stream");
+
+                const link = document.createElement("a");
+                link.href = pngUrl;
+                link.download = `qr_reunion_${reunion.id}.png`;
+                link.click();
+              }}
+              className="bg-white/20 text-white px-3 py-1.5 rounded text-xs font-medium hover:bg-white/30 transition-colors flex items-center gap-1"
+            >
+              <Save size={14} />
+              Descargar QR
+            </button>
+
             <button
               onClick={handleImprimirCodigo}
               className="bg-white/20 text-white px-3 py-1.5 rounded text-xs font-medium hover:bg-white/30 transition-colors flex items-center gap-1"
@@ -623,15 +638,9 @@ export default function DetalleReunionPage() {
               <Printer size={14} />
               Imprimir
             </button>
-            <button
-              onClick={handleDescargarQR}
-              className="bg-white/20 text-white px-3 py-1.5 rounded text-xs font-medium hover:bg-white/30 transition-colors flex items-center gap-1"
-            >
-              <Save size={14} />
-              Descargar
-            </button>
           </div>
         </div>
+
       </div>
 
       {/* Sección de asistentes */}

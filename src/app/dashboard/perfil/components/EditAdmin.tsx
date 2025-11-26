@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect  } from 'react'
 import { apiFetch } from '@/lib/api'
 import {
   UserCircle,
@@ -13,7 +13,6 @@ import {
   Users,
   Building,
   HelpCircle,
-  Key,
 } from 'lucide-react'
 import {
   enumEscolaridad,
@@ -21,14 +20,6 @@ import {
   enumSexo,
   enumParentesco,
 } from '@/constants/enums'
-
-interface FamiliaResponse {
-  items: Familia[]
-}
-
-interface ParcialidadResponse {
-  items: Parcialidad[]
-}
 
 interface EditarPerfilAdminProps {
   data: {
@@ -47,9 +38,13 @@ interface EditarPerfilAdminProps {
     familia: string
     parcialidad: string
   }
+  parcialidades: Parcialidad[]
+  familias: Familia[]
+  loadingCatalogos: boolean
   onClose: () => void
   onSuccess: () => void
 }
+
 
 interface Parcialidad {
   id: number
@@ -63,29 +58,35 @@ interface Familia {
 
 export default function EditarPerfilAdminModal({
   data,
+  parcialidades,
+  familias,
+  loadingCatalogos,
   onClose,
   onSuccess,
 }: EditarPerfilAdminProps) {
   const [form, setForm] = useState(data)
-  const [parcialidades, setParcialidades] = useState<Parcialidad[]>([])
-  const [familias, setFamilias] = useState<Familia[]>([])
   const [loading, setLoading] = useState(false)
   const [mensajeModal, setMensajeModal] = useState<string | null>(null)
 
-  // Cargar catálogos
   useEffect(() => {
-    const cargarCatalogos = async () => {
-      try {
-        const dataParcialidades = await apiFetch<ParcialidadResponse>('/parcialidad/?page=1&page_size=100')
-        setParcialidades(dataParcialidades.items)
-        const dataFamilias = await apiFetch<FamiliaResponse>('/familias/?page=1&page_size=100')
-        setFamilias(dataFamilias.items)
-      } catch {
-        setMensajeModal('Error al cargar opciones de parcialidad o familia.')
-      }
-    }
-    cargarCatalogos()
-  }, [])
+  if (!loadingCatalogos && parcialidades.length > 0 && familias.length > 0) {
+    const parcialidadEncontrada = parcialidades.find(
+      (p) => p.nombre.toLowerCase() === data.parcialidad?.toLowerCase()
+    )
+
+    const familiaEncontrada = familias.find(
+      (f) => f.id.toString() === data.familia
+    )
+
+    setForm((prev) => ({
+      ...prev,
+      parcialidad: parcialidadEncontrada ? parcialidadEncontrada.id.toString() : "",
+      familia: familiaEncontrada ? familiaEncontrada.id.toString() : ""
+    }))
+  }
+}, [loadingCatalogos, parcialidades, familias])
+
+
 
   const handleChange = (key: keyof typeof form, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }))
