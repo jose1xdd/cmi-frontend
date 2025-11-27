@@ -251,14 +251,6 @@ export default function RegistroAsistenciaPage() {
                 <span className="font-medium text-gray-800">{datosConfirmados.hora}</span>
               </div>
             </div>
-
-            <button
-              onClick={handleReset}
-              className="w-full py-3 bg-[#7d4f2b] text-white rounded-lg hover:bg-[#5e3c1f] transition-colors flex items-center justify-center gap-2"
-            >
-              <RefreshCw size={18} className="stroke-[3]" />
-              Registrar Otra Asistencia
-            </button>
           </div>
         </div>
       </div>

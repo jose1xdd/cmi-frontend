@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import * as XLSX from "xlsx"
+import { useRef } from 'react'
 import { apiFetch } from '@/lib/api'
 import { QRCodeCanvas } from "qrcode.react";
 import {
@@ -82,6 +82,21 @@ export default function DetalleReunionPage() {
   const [busqueda, setBusqueda] = useState('')
   const [asistentesFiltrados, setAsistentesFiltrados] = useState<Asistente[]>([])
 
+  // Estados para estadísticas de asistentes
+  const [personasPresentes, setPersonasPresentes] = useState(0)
+  const [personasAusentes, setPersonasAusentes] = useState(0)
+
+  // Estados para paginación de asistentes
+  const [pageAsistentes, setPageAsistentes] = useState(1)
+  const [totalPagesAsistentes, setTotalPagesAsistentes] = useState(1)
+  const [totalAsistentes, setTotalAsistentes] = useState(0) // Este estado se puede usar para mostrar el total
+
+  const ultimosContadores = useRef({
+    personasPresentes: 0,
+    personasAusentes: 0,
+    totalAsistentes: 0,
+  })
+
   // === Cargar datos ===
   const fetchReunion = async () => {
     setLoading(true)
@@ -98,16 +113,82 @@ export default function DetalleReunionPage() {
     }
   }
 
-  const fetchAsistentes = async () => {
-    setLoadingAsistentes(true)
+// En fetchAsistentes
+const fetchAsistentes = async () => {
+  setLoadingAsistentes(true)
+  try {
+    const params = new URLSearchParams({
+      page: pageAsistentes.toString(),
+      page_size: '10',
+    })
+    if (busqueda) {
+      params.append('q', busqueda)
+    }
+
+    // Asumiendo que este endpoint devuelve la nueva estructura
+    const data = await apiFetch<any>(
+      `/asistencia/asistencia/${reunionId}/personas?${params.toString()}`
+    )
+
+    // Actualizar estados con los nuevos campos
+    setAsistentes(data.items || [])
+    setPersonasPresentes(data.personas_presentes || 0)
+    setPersonasAusentes(data.personas_ausentes || 0)
+    setTotalAsistentes(data.total_items || 0)
+    setTotalPagesAsistentes(data.total_pages || 1)
+    // Opcional: sincronizar página actual si cambia desde el backend
+    // setPageAsistentes(data.current_page)
+  } catch (err) {
+    console.error('Error al cargar asistentes', err)
+    setAsistentes([])
+    setPersonasPresentes(0)
+    setPersonasAusentes(0)
+    setTotalAsistentes(0)
+    setTotalPagesAsistentes(1)
+  } finally {
+    setLoadingAsistentes(false)
+  }
+}
+
+  // === Cargar solo estadísticas ===
+  const fetchEstadisticasAsistentes = async () => {
     try {
-      const data = await apiFetch<{ items: Asistente[] }>(`/asistencia/asistencia/${reunionId}/personas`)
-      setAsistentes(data.items || [])
+      const params = new URLSearchParams({
+        page: '1', // Solo para obtener el total
+        page_size: '1',
+        reunion_id: reunionId.toString(),
+      })
+      const data = await apiFetch<{ personas_presentes: number; personas_ausentes: number; total_items: number; items: Asistente[]; total_pages: number }>(
+        `/asistencia/asistencia/${reunionId}/personas?${params.toString()}`
+      )
+
+      // Comparar con los últimos valores almacenados
+      const nuevosContadores = {
+        personasPresentes: data.personas_presentes || 0,
+        personasAusentes: data.personas_ausentes || 0,
+        totalAsistentes: data.total_items || 0,
+      }
+
+      const { personasPresentes: antP, personasAusentes: antA, totalAsistentes: antT } = ultimosContadores.current
+      const { personasPresentes: nueP, personasAusentes: nueA, totalAsistentes: nueT } = nuevosContadores
+
+      // Solo actualizar si hubo un cambio
+      if (antP !== nueP || antA !== nueA || antT !== nueT) {
+        console.log('Contadores cambiaron, actualizando UI...')
+        setPersonasPresentes(nueP)
+        setPersonasAusentes(nueA)
+        setTotalAsistentes(nueT)
+
+        // Almacenar nuevos valores como "últimos"
+        ultimosContadores.current = nuevosContadores
+
+        // Opcional: Recargar la tabla de asistentes si los contadores cambiaron
+        fetchAsistentes()
+      }
+      // Si no cambió, no hacer setState ni recargar tabla
     } catch (err) {
-      console.error('Error al cargar asistentes', err)
-      setAsistentes([])
-    } finally {
-      setLoadingAsistentes(false)
+      console.error('Error al cargar estadísticas de asistentes', err)
+      // No mostrar error aquí si no es crítico
     }
   }
 
@@ -116,6 +197,24 @@ export default function DetalleReunionPage() {
       fetchReunion()
       fetchAsistentes()
     }
+  }, [reunionId])
+
+    useEffect(() => {
+    if (reunionId) {
+      fetchAsistentes()
+    }
+  }, [reunionId, pageAsistentes, busqueda])
+
+    // === EFECTO: Actualizar estadísticas cada 5 segundos ===
+  useEffect(() => {
+    if (!reunionId) return // No hacer nada si no hay reunión
+
+    const interval = setInterval(() => {
+      fetchEstadisticasAsistentes()
+    }, 5000) // <-- Cada 5 segundos
+
+    // Limpiar el intervalo al desmontar el componente o si cambia reunionId
+    return () => clearInterval(interval)
   }, [reunionId])
 
   // Filtrar asistentes cuando cambia la búsqueda
@@ -195,6 +294,7 @@ export default function DetalleReunionPage() {
       setShowSuccessModal(true)
     }
   }
+  
 
   const handleAbrirReunion = async () => {
     if (!reunion) return
@@ -674,15 +774,15 @@ export default function DetalleReunionPage() {
           <div className="flex flex-wrap gap-6 mb-6">
             <div className="flex items-center gap-3">
               <div className="w-3 h-3 rounded-full bg-green-500"></div>
-              <span className="text-sm text-gray-600">Presentes: <span className="font-medium">{asistentes.filter(a => a.Asistencia).length}</span></span>
+              <span className="text-sm text-gray-600">Presentes: <span className="font-medium">{personasPresentes}</span></span>
             </div>
             <div className="flex items-center gap-3">
               <div className="w-3 h-3 rounded-full bg-red-500"></div>
-              <span className="text-sm text-gray-600">Ausentes: <span className="font-medium">{asistentes.filter(a => !a.Asistencia).length}</span></span>
+              <span className="text-sm text-gray-600">Ausentes: <span className="font-medium">{personasAusentes}</span></span>
             </div>
             <div className="flex items-center gap-3">
               <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-              <span className="text-sm text-gray-600">Total: <span className="font-medium">{asistentes.length}</span></span>
+              <span className="text-sm text-gray-600">Total: <span className="font-medium">{totalAsistentes}</span></span>
             </div>
           </div>
 
@@ -737,6 +837,30 @@ export default function DetalleReunionPage() {
               </table>
             )}
           </div>
+            {/* === PAGINACIÓN DE ASISTENTES === */}
+            {totalPagesAsistentes > 1 && (
+              <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4 mt-4 border-t border-gray-200">
+                <div className="text-sm text-gray-600">
+                  Página {pageAsistentes} de {totalPagesAsistentes}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setPageAsistentes(prev => Math.max(prev - 1, 1))}
+                    disabled={pageAsistentes <= 1}
+                    className="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Anterior
+                  </button>
+                  <button
+                    onClick={() => setPageAsistentes(prev => Math.min(prev + 1, totalPagesAsistentes))}
+                    disabled={pageAsistentes >= totalPagesAsistentes}
+                    className="px-4 py-2 rounded-lg bg-[#7d4f2b] text-white hover:bg-[#5e3c1f] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Siguiente
+                  </button>
+                </div>
+              </div>
+            )}
         </div>
       </div>
 

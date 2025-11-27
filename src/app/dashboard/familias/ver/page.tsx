@@ -7,8 +7,6 @@ import {
   Download,
   Eye,
   Trash2,
-  Search,
-  FileText,
   Building,
   User,
   X,
@@ -189,7 +187,6 @@ export default function DetalleFamiliaPage() {
   useEffect(() => {
     if (familiaId) {
       fetchFamilia()
-      handleDownloadResumen()
     }
   }, [familiaId])
 
@@ -201,7 +198,6 @@ export default function DetalleFamiliaPage() {
 
   useEffect(() => {
     fetchCatalogos()
-    handleDownloadResumen()
   }, [])
 
   // === Lógica ===
@@ -582,9 +578,9 @@ const handleDownloadResumen = async () => {
           </table>
         </div>
 
-        {/* Paginación */}
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4">
-          <div className="text-sm text-gray-600">Página {page} de {totalPages}</div>
+      {/* Paginación */}
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4">
+        <div className="text-sm text-gray-600">Página {page} de {totalPages}</div>
           <div className="flex gap-2">
             <button
               disabled={page <= 1}
