@@ -6,7 +6,6 @@ import {
   Users,
   UsersRound,
   Calendar,
-  MoreHorizontal,
   Shield,
   ChartColumnIncreasing,
   Cake,
@@ -59,10 +58,6 @@ interface StatsData {
   totalFamilias: number
   usuariosActivos: number
   reunionesEsteMes: number
-  trendPersonas: number
-  trendFamilias: number
-  trendUsuarios: number
-  trendReuniones: number
 }
 
 interface ParcialidadData {
@@ -112,10 +107,6 @@ export default function DashboardPage() {
         totalFamilias: data.total_familias,
         usuariosActivos: usuarios, // <-- Pendiente: no lo devuelve la API
         reunionesEsteMes: data.total_reuniones, // <-- Aproximación
-        trendPersonas: 0, // <-- Pendiente: no lo devuelve la API
-        trendFamilias: 0, // <-- Pendiente: no lo devuelve la API
-        trendUsuarios: 0, // <-- Pendiente: no lo devuelve la API
-        trendReuniones: 0, // <-- Pendiente: no lo devuelve la API
       }
 
       const parcialidadesMapeadas: ParcialidadData[] = Object.entries(data.por_parcialidad).map(([nombre, cantidad]) => ({
@@ -197,7 +188,6 @@ export default function DashboardPage() {
             icon={<Users className="w-5 h-5 sm:w-6 sm:h-6" />}
             bg="bg-blue-50"
             color="text-blue-700"
-            trend={stats.trendPersonas}
             trendLabel="vs año anterior"
           />
           <StatCard
@@ -206,7 +196,6 @@ export default function DashboardPage() {
             icon={<UsersRound className="w-5 h-5 sm:w-6 sm:h-6" />}
             bg="bg-purple-50"
             color="text-purple-700"
-            trend={stats.trendFamilias}
             trendLabel="vs año anterior"
           />
           <StatCard
@@ -215,7 +204,6 @@ export default function DashboardPage() {
             icon={<Shield className="w-5 h-5 sm:w-6 sm:h-6" />}
             bg="bg-green-50"
             color="text-green-700"
-            trend={stats.trendUsuarios}
             trendLabel="nuevos este mes"
           />
           <StatCard
@@ -224,7 +212,6 @@ export default function DashboardPage() {
             icon={<Calendar className="w-5 h-5 sm:w-6 sm:h-6" />}
             bg="bg-orange-50"
             color="text-orange-700"
-            trend={stats.trendReuniones}
             trendLabel="vs mes anterior"
           />
         </div>

@@ -11,20 +11,6 @@ import FormularioPersonaPage from './formulario/page'
 import { Tooltip } from '@/components/Tooltip'
 import VerPersonaModal from './modales/VerPersonaModal'
 
-/* Hook para debounce */
-function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState(value)
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value)
-    }, delay)
-
-    return () => clearTimeout(handler)
-  }, [value, delay])
-
-  return debouncedValue
-}
 
 interface Persona {
   id: string
@@ -103,6 +89,15 @@ const [personaAEditar, setPersonaAEditar] = useState<string | null>(null)
 const [selectedUser, setSelectedUser] = useState<Persona | null>(null)
 const [userToDelete, setUserToDelete] = useState<Persona | null>(null)
 const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null)
+
+const [totalPersonas, setTotalPersonas] = useState(0);
+const [hombres, setHombres] = useState(0);
+const [mujeres, setMujeres] = useState(0);
+
+useEffect(() => {
+  cargarEstadisticasPersonas();
+}, []);
+
 
 // === Hooks personalizados ===
 function useDebounce<T>(value: T, delay: number): T {
@@ -243,15 +238,25 @@ const handleUploadExcel = async (file: File) => {
 }
 
 // === Estadísticas ===
-const totalPersonas = personas.length
-const hombres = personas.filter(p => p.sexo === 'M').length
-const mujeres = personas.filter(p => p.sexo === 'F').length
+const cargarEstadisticasPersonas = async () => {
+  try {
+    const data = await apiFetch<any>('/reportes/reportes/resumen');
+
+    setTotalPersonas(data.total_personas);
+    setHombres(data.total_hombres);
+    setMujeres(data.total_mujeres);
+
+  } catch (error) {
+    console.error("Error cargando estadísticas de personas", error);
+  }
+};
+
 
    return (
     <div>
       {/* Encabezado y controles superiores */}
       <div className="bg-white p-6 rounded-lg shadow-md">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-5">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h1 className="text-2xl sm:text-3xl font-semibold text-[#333] flex items-center gap-2">
             <Users size={25} className="text-[#7d4f2b] stroke-[2.5]" />
             Personas
@@ -297,7 +302,7 @@ const mujeres = personas.filter(p => p.sexo === 'F').length
         </div>
 
         {/* Filtros */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
           <div className="flex-1">
             <AnimatedFilterField
               icon={Search}
@@ -380,7 +385,7 @@ const mujeres = personas.filter(p => p.sexo === 'F').length
       </div>
 
       {/* Tarjetas de estadísticas (opcional) */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
         <StatCard
           label="Total de personas"
           value={totalPersonas}

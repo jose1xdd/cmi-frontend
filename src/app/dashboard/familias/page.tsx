@@ -109,10 +109,16 @@ export default function FamiliaPage() {
   const [successMessage, setSuccessMessage] = useState('')
 
   const cargarStats = async () => {
-    const data = await apiFetch<any>(`/familias/estadisticas-generales`)
-    setTotalFamilias(data.total_familias)
-    setTotalPersonas(data.total_personas)
-  }
+    try {
+      const data = await apiFetch<any>('/reportes/reportes/resumen');
+
+      setTotalFamilias(data.total_familias);
+      setTotalPersonas(data.total_personas);
+
+    } catch (error) {
+      console.error("Error cargando estadísticas", error);
+    }
+  };
 
   // === CARGAR FAMILIAS ===
   const fetchFamilias = async () => {
