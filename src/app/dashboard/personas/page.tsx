@@ -251,6 +251,61 @@ const cargarEstadisticasPersonas = async () => {
   }
 };
 
+const handleDescargarPersonas = async () => {
+  try {
+    // 1. Obtener el token
+    const token = localStorage.getItem('token')
+    if (!token) {
+      throw new Error('No hay token de sesión.')
+    }
+
+    // 2. Hacer la petición con fetch nativo
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://backend-quillacinga.ddns.net/cmi-apigateway'}/reportes/reportes/personas`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          // No especifiques 'Accept: application/json' si el backend devuelve el archivo directamente
+          // Accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        },
+      }
+    )
+
+    // 3. Verificar si la respuesta es OK
+    if (!response.ok) {
+      throw new Error(`Error al descargar: ${response.status} - ${response.statusText}`)
+    }
+
+    // 4. Obtener el blob
+    const blob = await response.blob()
+
+    // 5. Crear URL y enlace para descargar
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    // Opcional: Obtener el nombre del archivo desde el header 'content-disposition'
+    const disposition = response.headers.get('Content-Disposition')
+    let filename = 'personas.xlsx' // nombre por defecto
+    if (disposition && disposition.indexOf('attachment') !== -1) {
+      const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/
+      const matches = filenameRegex.exec(disposition)
+      if (matches != null && matches[1]) {
+        filename = matches[1].replace(/['"]/g, '')
+      }
+    }
+    link.download = filename
+
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+
+    // 6. Liberar la URL del objeto
+    window.URL.revokeObjectURL(url)
+  } catch (err) {
+    console.error('Error al descargar reporte de personas', err)
+  }
+}
 
    return (
     <div>
@@ -287,6 +342,17 @@ const cargarEstadisticasPersonas = async () => {
               <Download size={16} className="stroke-[3] relative z-10" />
               <span className="relative z-10">Descargar formato</span>
               <Tooltip text="Descarga la plantilla de Excel para registrar personas." color='white'/>
+            </button>
+
+            <button
+              onClick={handleDescargarPersonas}
+              className="relative overflow-hidden bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2 
+                        text-sm transition-all duration-300 group hover:shadow-lg hover:-translate-y-[2px]"
+            >
+              <span className="absolute inset-0 bg-gradient-to-r from-green-700 to-green-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+              <Download size={16} className="stroke-[3] relative z-10" />
+              <span className="relative z-10">Descargar informe</span>
+              <Tooltip text="Descarga el informe de las personas." color="white" />
             </button>
 
             <button

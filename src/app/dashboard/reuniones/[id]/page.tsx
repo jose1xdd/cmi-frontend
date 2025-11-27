@@ -17,11 +17,8 @@ import {
   Copy,
   Printer,
   Save,
-  MapPin,
   Calendar,
   Clock,
-  Key,
-  AlertCircle,
   CheckCircle,
   XCircle,
   Search,
@@ -217,43 +214,64 @@ export default function DetalleReunionPage() {
     }
   }
 
-  const handleDescargarInforme = () => {
-    if (!asistentes || asistentes.length === 0) {
-      setMensajeModal("No hay asistentes para generar el informe.")
+  const handleDescargarInforme = async () => {
+    if (!reunion?.id) {
+      setMensajeModal("No se puede descargar el informe: ID de reunión no disponible.")
       setShowSuccessModal(true)
       return
     }
 
     try {
-      // Convertir el array a hoja de Excel
-      const worksheet = XLSX.utils.json_to_sheet(asistentes)
+      // 1. Obtener token
+      const token = localStorage.getItem('token')
+      if (!token) {
+        throw new Error('No hay token de sesión.')
+      }
 
-      // Crear un libro de Excel
-      const workbook = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Asistentes")
+      // 2. Hacer la solicitud al endpoint
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://backend-quillacinga.ddns.net/cmi-apigateway'}/reportes/reporte/asistencia/${reunion.id}`,
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            // No se necesita Accept: 'application/json' si el backend devuelve el archivo directamente
+          },
+        }
+      )
 
-      // Generar archivo Excel
-      const excelBuffer = XLSX.write(workbook, {
-        bookType: "xlsx",
-        type: "array",
-      })
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`)
+      }
 
-      // Convertir a Blob
-      const blob = new Blob([excelBuffer], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      })
+      // 3. Obtener el blob del archivo
+      const blob = await response.blob()
 
-      // Descargar archivo
+      // 4. Crear URL y enlace para descargar
       const url = window.URL.createObjectURL(blob)
-      const link = document.createElement("a")
+      const link = document.createElement('a')
       link.href = url
-      link.download = `asistentes_reunion_${reunion?.id || "sin-id"}.xlsx`
-      link.click()
-      window.URL.revokeObjectURL(url)
+      // Opcional: extraer nombre del archivo del header 'content-disposition'
+      const disposition = response.headers.get('Content-Disposition')
+      let filename = `informe_asistencia_reunion_${reunion.id}.xlsx` // nombre por defecto
+      if (disposition && disposition.includes('attachment')) {
+        const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/
+        const matches = filenameRegex.exec(disposition)
+        if (matches != null && matches[1]) {
+          filename = matches[1].replace(/['"]/g, '')
+        }
+      }
+      link.download = filename
 
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+
+      // 5. Liberar la URL del objeto
+      window.URL.revokeObjectURL(url)
     } catch (err: any) {
-      console.error("Error al generar el Excel:", err)
-      setMensajeModal("Ocurrió un error al generar el informe.")
+      console.error('Error al descargar informe de asistencia', err)
+      setMensajeModal(err.message || "Ocurrió un error al descargar el informe.")
       setShowSuccessModal(true)
     }
   }

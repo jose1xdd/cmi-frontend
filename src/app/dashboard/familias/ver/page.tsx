@@ -224,25 +224,67 @@ export default function DetalleFamiliaPage() {
     setUserToDelete(null)
   }
 
-  const handleDownloadResumen = async () => {
-    try {
-      setLoading(true)
-
-      // Llamamos al endpoint con el id
-      const res = await apiFetch(`/familias/${familiaId}/resumen`, {
-        method: "GET",
-      })
-
-      setTotalPersonas(res.total_miembros)
-      setActivos(res.miembros_activos)
-      setInactivos(res.defunciones)
-
-    } catch (err: any) {
-      console.error("Error al generar el resumen:", err)
-    } finally {
-      setLoading(false)
-    }
+const handleDownloadResumen = async () => {
+  if (!familiaId) {
+    return
   }
+
+  try {
+    setLoading(true)
+
+    // 1. Obtener token
+    const token = localStorage.getItem('token')
+    if (!token) {
+      throw new Error('No hay token de sesión.')
+    }
+
+    // 2. Hacer la solicitud al endpoint de reporte
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://backend-quillacinga.ddns.net/cmi-apigateway'}/reportes/reporte/familia/${familiaId}`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    )
+
+    if (!response.ok) {
+      throw new Error(`Error ${response.status}: ${response.statusText}`)
+    }
+
+    // 3. Obtener el blob del archivo
+    const blob = await response.blob()
+
+    // 4. Crear URL y enlace para descargar
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+
+    // Opcional: extraer nombre del archivo del header 'content-disposition'
+    const disposition = response.headers.get('Content-Disposition')
+    let filename = `informe_familia_${familiaId}.xlsx` // nombre por defecto
+    if (disposition && disposition.includes('attachment')) {
+      const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/
+      const matches = filenameRegex.exec(disposition)
+      if (matches != null && matches[1]) {
+        filename = matches[1].replace(/['"]/g, '')
+      }
+    }
+    link.download = filename
+
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+
+    // 5. Liberar la URL del objeto
+    window.URL.revokeObjectURL(url)
+  } catch (err: any) {
+    console.error('Error al descargar informe familiar', err)
+  } finally {
+    setLoading(false)
+  }
+}
 
   const eliminarUsuario = async () => {
     if (!userToDelete) return
