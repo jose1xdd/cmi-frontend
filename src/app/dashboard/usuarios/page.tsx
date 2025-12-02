@@ -167,7 +167,7 @@ export default function UsuariosSistemaPage() {
       
       <div className='grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-8 mb-8'>
         <StatCard
-          label="Cantidad de usuarios"
+          label="Cantidad de censadores"
           value={cantidadUsuarios.usuario}
           icon={<User className="w-4 h-4 sm:w-6 sm:h-6" />}
           bg="bg-[#e3f2fd]"
@@ -225,11 +225,11 @@ export default function UsuariosSistemaPage() {
                     <td className="px-5 py-3 text-center">
                       {u.rol === 'admin' ? (
                         <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full capitalize">
-                          {u.rol}
+                          { u.rol }
                         </span>
                       ) : (
                         <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full capitalize">
-                          {u.rol}
+                          Censador
                         </span>
                       )}
                     </td>

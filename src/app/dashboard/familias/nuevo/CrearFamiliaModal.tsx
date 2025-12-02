@@ -5,7 +5,6 @@ import { apiFetch } from '@/lib/api'
 import { Plus, Users, X, AlertCircle, UserPlus } from 'lucide-react'
 import PasoCrearPersonaLider from '../components/PasoCrearPersonaLider'
 import PasoSeleccionarPersonaLider from '../components/PasoSeleccionarPersonaLider'
-import { Console } from 'console'
 
 
 interface CrearFamiliaModalProps {
@@ -26,14 +25,15 @@ export default function CrearFamiliaModal({
     setLoading(true)
     setMensajeModal(null)
 
+    const payload2 = {
+      "representanteId": `${idPersonaLider}`,
+      "estado": "ACTIVA"
+    }
     try {
       // 1. Crear la familia vacía
       const familiaRes = await apiFetch<{ id: number }>(`/familias/create`, {
         method: 'POST',
-        body: JSON.stringify({
-          "representante_id": idPersonaLider,
-          "estado": "ACTIVA"
-        }),
+        body: JSON.stringify(payload2),
       })
       
       // 2. Asignar la familia a la persona líder
@@ -168,17 +168,6 @@ export default function CrearFamiliaModal({
           )}
         </div>
 
-        {/* Pie del modal */}
-        <div className="p-4 border-t border-gray-200 flex justify-end">
-          {opcion !== 'menu' && (
-            <button
-              onClick={() => setOpcion('menu')}
-              className="px-4 py-2 text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors"
-            >
-              Volver al menú
-            </button>
-          )}
-        </div>
       </div>
     </div>
   )

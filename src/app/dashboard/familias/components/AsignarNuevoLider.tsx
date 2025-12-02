@@ -2,15 +2,22 @@
 
 import { useState, useEffect } from 'react'
 import { apiFetch } from '@/lib/api'
-import { User, Search, Users, X, AlertCircle } from 'lucide-react'
+import { Search, Users, AlertCircle} from 'lucide-react'
 import { Tooltip } from '@/components/Tooltip'
 
+// Tipos (ajusta según tu backend)
 interface Persona {
   id: string
   nombre: string
   apellido: string
   tipoDocumento: string
   idFamilia: number | null // null si no tiene familia
+  parcialidad?: { id: number; nombre: string } | null
+  sexo: string
+  fechaNacimiento: string
+  parentesco: string
+  escolaridad: string
+  profesion: string
 }
 
 interface PersonaResponse {
@@ -21,11 +28,15 @@ interface PersonaResponse {
 }
 
 interface PasoSeleccionarPersonaLiderProps {
+  familiaId: number // <-- Nuevo: ID de la familia objetivo
+  idsMiembrosFamilia: string[] // <-- Nuevo: IDs de los miembros actuales (para excluirlos)
   onPersonaSeleccionada: (idPersona: string) => void // Callback para cuando se selecciona una persona
   onCancelar: () => void // Callback para volver al menú principal del modal
 }
 
 export default function PasoSeleccionarPersonaLider({
+  familiaId,
+  idsMiembrosFamilia,
   onPersonaSeleccionada,
   onCancelar,
 }: PasoSeleccionarPersonaLiderProps) {
@@ -35,19 +46,17 @@ export default function PasoSeleccionarPersonaLider({
   const [mensajeError, setMensajeError] = useState<string | null>(null)
   const [busqueda, setBusqueda] = useState('')
 
-  // Cargar personas disponibles (sin familia)
+  // Cargar personas disponibles (que no estén en la familia actual)
   useEffect(() => {
     const cargarPersonas = async () => {
+      setLoading(true)
+      setMensajeError(null)
       try {
-        setLoading(true)
-        // Asumiendo que el backend tiene un filtro para personas sin familia
-        // Si no, se filtra aquí en el frontend
         const params = new URLSearchParams({
           page: '1',
           page_size: '100',
           activo: 'true',
-          // Opcional: si el backend soporta este filtro
-          // exclude_familia: 'true'
+          // No excluyas por idFamilia aquí si el backend no lo soporta
         })
         if (busqueda) {
           if (/^\d+$/.test(busqueda)) {
@@ -58,10 +67,10 @@ export default function PasoSeleccionarPersonaLider({
         }
 
         const data = await apiFetch<PersonaResponse>(`/personas/?${params.toString()}`)
-        // Filtrar en el frontend si el backend no lo hace
-        const sinFamilia = data.items.filter(p => p.idFamilia == null)
-        setPersonas(sinFamilia)
-        setPersonasAFiltrar(sinFamilia)
+        // Filtrar en el frontend: excluir a los miembros actuales de la familia
+        const disponibles = data.items.filter(p => p.idFamilia == familiaId)
+        setPersonas(disponibles)
+        setPersonasAFiltrar(disponibles)
       } catch (err) {
         console.error('Error al cargar personas disponibles', err)
         setMensajeError('No se pudieron cargar las personas disponibles.')
@@ -72,7 +81,7 @@ export default function PasoSeleccionarPersonaLider({
     cargarPersonas()
   }, [busqueda])
 
-  // Filtrar personas localmente si se cambia la búsqueda
+  // Filtrar personas localmente si se cambia la búsqueda o cambian los miembros
   useEffect(() => {
     if (!busqueda) {
       setPersonasAFiltrar(personas)
@@ -86,18 +95,43 @@ export default function PasoSeleccionarPersonaLider({
     }
   }, [busqueda, personas])
 
-  const handleSeleccionar = (idPersona: string) => {
-    onPersonaSeleccionada(idPersona)
-  }
+    const handleSeleccionar = async (idPersona: string) => {
+    try {
+        // 1. Llamar al endpoint para actualizar el líder de la familia
+        await apiFetch(`/familias/update`, {
+        method: 'PUT',
+        body: JSON.stringify({
+            familiaId: familiaId,
+            representanteId: idPersona,
+        }),
+        })
+
+        const payload = {
+            familia_id: Number(familiaId), // convertir a número si tu API espera integer
+            personas_id: [idPersona],       // arreglo de ids (strings según tu spec)
+        }
+        const res = await apiFetch<{ success?: boolean; message?: string }>('/personas/assing-family',
+        {
+            method: 'PATCH',
+            body: JSON.stringify(payload),
+        }
+        )
+        // 2. Notificar al padre que se seleccionó exitosamente
+        onPersonaSeleccionada(idPersona)
+    } catch (err: any) {
+        console.error('Error al asignar nuevo líder', err)
+        setMensajeError(err.message || 'No se pudo asignar la persona como líder.')
+    }
+    }
 
   return (
     <div className="p-6 space-y-6">
       <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-lg flex items-start gap-3">
         <AlertCircle className="text-blue-600 mt-0.5 flex-shrink-0" size={20} />
         <div>
-          <h3 className="font-bold text-blue-800">Seleccionar persona existente como líder</h3>
+          <h3 className="font-bold text-blue-800">Asignar nuevo líder a la familia</h3>
           <p className="text-sm text-blue-700 mt-1">
-            Busca y selecciona una persona ya registrada en el sistema que será el líder de la nueva familia.
+            Busca y selecciona una persona ya registrada en el sistema que será el nuevo líder de la familia #{familiaId}.
           </p>
         </div>
       </div>
@@ -112,7 +146,7 @@ export default function PasoSeleccionarPersonaLider({
           placeholder="Buscar por nombre o documento..."
           className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-gray-800 focus:ring-2 focus:ring-[#7d4f2b] focus:border-transparent"
         />
-        <Tooltip text="Busca personas ya registradas que no pertenezcan a ninguna familia." />
+        <Tooltip text="Busca personas ya registradas que no pertenezcan a esta familia." />
       </div>
 
       {mensajeError && (
@@ -138,21 +172,28 @@ export default function PasoSeleccionarPersonaLider({
                 <tr>
                   <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wider">Nombre</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wider">Documento</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wider">Parcialidad</th>
                   <th className="px-4 py-3 text-center text-sm font-semibold uppercase tracking-wider">Acción</th>
                 </tr>
               </thead>
               <tbody>
-                {personas.map((p, index) => (
+                {personasAFiltrar.map((p, index) => (
                   <tr key={p.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                     <td className="px-4 py-3 text-gray-800">{p.nombre} {p.apellido}</td>
                     <td className="px-4 py-3 text-gray-800 font-mono">{p.id}</td>
+                    <td className="px-4 py-3 text-gray-800">{p.parcialidad?.nombre || '-'}</td>
                     <td className="px-4 py-3 text-center">
                       <button
-                        onClick={() => handleSeleccionar(p.id)}
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            console.log("CLICK REAL")
+                            handleSeleccionar(p.id)
+                        }}
                         className="text-[#7d4f2b] hover:text-white hover:bg-[#7d4f2b] border border-[#7d4f2b] px-3 py-1 rounded-full text-sm transition-colors"
-                        title={`Seleccionar a ${p.nombre} como líder`}
+                        title={`Asignar a ${p.nombre} como líder`}
                       >
-                        Seleccionar
+                        Asignar
                       </button>
                     </td>
                   </tr>

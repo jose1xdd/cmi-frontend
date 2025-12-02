@@ -16,6 +16,8 @@ import {
   HeartMinus,
   Edit3,
   VenusAndMars,
+  UserRound,
+  UserX,
 } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
@@ -26,6 +28,7 @@ import FormularioPersonaPage from '../../personas/formulario/page'
 import VerPersonaModal from '../../personas/modales/VerPersonaModal'
 import RegistrarDefuncionModal from '../../personas/modales/DefuncionModal'
 import AgregarPersonaExistenteModal from '../modales/AgregarPersonaExistenteModal'
+import PasoSeleccionarPersonaLider from '../components/AsignarNuevoLider'
 
 // Interfaces
 interface Persona {
@@ -43,7 +46,7 @@ interface Persona {
   activo: boolean
   idFamilia: number | null
   parcialidad: { id: number; nombre: string } | null
-  fechaDefuncion: string | null // <-- Añadido
+  fechaDefuncion: string | null
 }
 
 interface Familia {
@@ -72,6 +75,7 @@ export default function DetalleFamiliaPage() {
   const searchParams = useSearchParams()
   const familiaId = Number(searchParams.get('id'))
   const [idsMiembrosFamilia, setIdsMiembrosFamilia] = useState<string[]>([])
+  const [showAsignarLiderModal, setShowAsignarLiderModal] = useState(false)
 
   // Estado de la familia (única)
   const [familia, setFamilia] = useState<any>(null)
@@ -218,6 +222,22 @@ export default function DetalleFamiliaPage() {
   const cerrarModal = () => {
     setSelectedUser(null)
     setUserToDelete(null)
+  }
+
+  const handleBorrarLider = async () => {
+    try {
+      // 1. Llamar al endpoint para actualizar el líder de la familia
+      await apiFetch(`/familias/update`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          familiaId: familiaId,
+          representanteId: null,
+        }),
+      })
+      fetchFamilia()
+    } catch (err: any) {
+      console.error('Error al asignar nuevo líder', err)
+    }
   }
 
 const handleDownloadResumen = async () => {
@@ -423,6 +443,40 @@ const handleDownloadResumen = async () => {
               <User className="stroke-[3] relative z-10" size={16} />
               <span className="relative z-10">Agregar Persona Existente</span>
             </button>
+
+{/* Botón: Agregar Persona Existente */}
+            <button
+              onClick={() => setShowAgregarExistenteModal(true)}
+              className="relative overflow-hidden bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2 text-sm transition-all duration-300 group hover:shadow-lg hover:-translate-y-0.5"
+            >
+              <span className="absolute inset-0 bg-gradient-to-r from-blue-700 to-blue-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+              <User className="stroke-[3] relative z-10" size={16} />
+              <span className="relative z-10">Agregar Persona Existente</span>
+            </button>
+
+            {/* Botón: Eliminar Líder (condicional) */}
+            {familia?.lider && familia.lider !== 'No encontrado' && (
+              <button
+                onClick={handleBorrarLider}
+                className="relative overflow-hidden bg-red-600 text-white px-4 py-2 rounded flex items-center gap-2 text-sm transition-all duration-300 group hover:shadow-lg hover:-translate-y-0.5"
+              >
+                <span className="absolute inset-0 bg-gradient-to-r from-red-700 to-red-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+                <UserX size={16} className="stroke-[3] relative z-10" />
+                <span className="relative z-10">Eliminar Líder</span>
+              </button>
+            )}
+
+            {/* Botón: Asignar Nuevo Líder (condicional) */}
+            {!familia?.lider || familia.lider === 'No encontrado' && (
+              <button
+                onClick={() => setShowAsignarLiderModal(true)}
+                className="relative overflow-hidden bg-yellow-600 text-white px-4 py-2 rounded flex items-center gap-2 text-sm transition-all duration-300 group hover:shadow-lg hover:-translate-y-0.5"
+              >
+                <span className="absolute inset-0 bg-gradient-to-r from-yellow-700 to-yellow-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+                <UserRound size={16} className="stroke-[3] relative z-10" />
+                <span className="relative z-10">Asignar Nuevo Líder</span>
+              </button>
+            )}
 
             <button
               onClick={() => setShowDefuncionModal(true)}
@@ -687,6 +741,42 @@ const handleDownloadResumen = async () => {
             fetchPersonas() // Recarga la lista
           }}
         />
+      )}
+
+      {/* Modal: Asignar Nuevo Líder */}
+      {showAsignarLiderModal && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-3xl max-h-[90vh] overflow-hidden">
+            <div className="p-5 border-b border-gray-200 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-[#7d4f2b] flex items-center justify-center">
+                  <UserRound className="w-4 h-4 text-white" />
+                </div>
+                <h2 className="text-lg font-bold text-[#2c3e50]">Asignar Nuevo Líder a la Familia</h2>
+              </div>
+              <button
+                onClick={() => setShowAsignarLiderModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+                aria-label="Cerrar"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="overflow-y-auto max-h-[70vh]">
+              <PasoSeleccionarPersonaLider
+                key={`asignar-lider-modal-${showAsignarLiderModal}`}
+                familiaId={familiaId}
+                idsMiembrosFamilia={idsMiembrosFamilia}
+                onPersonaSeleccionada={(id) => {
+                  setShowAsignarLiderModal(false)
+                  fetchFamilia()
+                  fetchPersonas()
+                }}
+                onCancelar={() => setShowAsignarLiderModal(false)}
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
