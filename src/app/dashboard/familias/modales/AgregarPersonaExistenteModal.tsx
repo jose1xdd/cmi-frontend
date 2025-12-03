@@ -54,9 +54,10 @@ export default function AgregarPersonaExistenteModal({
     try {
       const params = new URLSearchParams({
         page: page.toString(),
-        page_size: '100', // Obtenemos más de una vez para poder filtrar
-        activo: 'true', // Asumiendo que solo quieres personas activas
-        // NOTA: Ya no usamos exclude_familia_id aquí
+        page_size: '100',
+        activo: 'true',
+        // Opcional: si el backend soporta este filtro, es lo ideal
+        // exclude_familia: 'true' // <-- Ejemplo: si el backend lo soporta
       })
       if (busqueda) {
         if (/^\d+$/.test(busqueda)) {
@@ -77,13 +78,15 @@ export default function AgregarPersonaExistenteModal({
   }
 
   useEffect(() => {
-    fetchPersonas()
-  }, [familiaId, page, busqueda, idsMiembrosFamilia])
-
-  useEffect(() => {
-    const filtradas = todasLasPersonas.filter(p => !idsMiembrosFamilia.includes(p.id))
+    const filtradas = todasLasPersonas.filter(
+      p => !idsMiembrosFamilia.includes(p.id) && p.idFamilia === null
+    )
     setPersonasAFiltrar(filtradas)
   }, [todasLasPersonas, idsMiembrosFamilia])
+
+  useEffect(() => {
+    fetchPersonas()
+  }, [page, busqueda])
 
   const handleAgregar = async (personaId: string) => {
     try {
@@ -166,15 +169,16 @@ export default function AgregarPersonaExistenteModal({
             </div>
           )}
 
-          {loading ? (
-            <p className="text-center text-gray-500 py-4">Cargando personas disponibles...</p>
-          ) : personasAFiltrar.length === 0 ? ( // <-- Usar personasAFiltrar
-            <div className="text-center py-8 text-gray-500">
-              <Users size={48} className="mx-auto text-gray-300 mb-3" />
-              <p>No hay personas disponibles para agregar a esta familia.</p>
-              {busqueda && <p className="text-sm mt-2">Intenta con otro criterio de búsqueda.</p>}
-            </div>
-          ) : (
+          {
+            loading ? (
+              <p className="text-center text-gray-500 py-4">Cargando personas disponibles...</p>
+            ) : personasAFiltrar.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <Users size={48} className="mx-auto text-gray-300 mb-3" />
+                <p>No hay personas sin familia disponibles para agregar.</p>
+                {busqueda && <p className="text-sm mt-2">Intenta con otro criterio de búsqueda.</p>}
+              </div>
+            ) : (
             <>
               {/* Tabla de personas */}
               <div className="overflow-x-auto border rounded-lg">

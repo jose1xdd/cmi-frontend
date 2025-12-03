@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Eye, Search, X, Upload, Download, UserPlus, Edit3, Users, User, FileText, UsersRound, Building, HeartMinus } from 'lucide-react'
+import { Eye, Search, X, Upload, Download, UserPlus, Edit3, Users, User, FileText, UsersRound, Building, HeartMinus, Calendar, CircleX, CircleCheck } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
 import { enumSexo, enumDocumento } from '@/constants/enums'
@@ -66,192 +66,194 @@ interface UploadResponse {
 }
 
 export default function UsuariosPage() {
-// Estados
-const [busqueda, setBusqueda] = useState('')
-const debouncedBusqueda = useDebounce(busqueda, 500)
-const [filtroDocumento, setFiltroDocumento] = useState('')
-const [filtroSexo, setFiltroSexo] = useState('')
-const [filtroParcialidad, setFiltroParcialidad] = useState('')
-const [filtroFamilia, setFiltroFamilia] = useState('')
+  // Estados
+  const [busqueda, setBusqueda] = useState('')
+  const debouncedBusqueda = useDebounce(busqueda, 500)
+  const [filtroDocumento, setFiltroDocumento] = useState('')
+  const [filtroSexo, setFiltroSexo] = useState('')
+  const [filtroParcialidad, setFiltroParcialidad] = useState('')
+  const [filtroFamilia, setFiltroFamilia] = useState('')
 
-const [personas, setPersonas] = useState<Persona[]>([])
-const [parcialidades, setParcialidades] = useState<Parcialidad[]>([])
-const [familias, setFamilias] = useState<Familia[]>([])
+  const [personas, setPersonas] = useState<Persona[]>([])
+  const [parcialidades, setParcialidades] = useState<Parcialidad[]>([])
+  const [familias, setFamilias] = useState<Familia[]>([])
 
-const [page, setPage] = useState(1)
-const [totalPages, setTotalPages] = useState(1)
-const [loading, setLoading] = useState(false)
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [loading, setLoading] = useState(false)
+  const [fechaDefuncion, setFechaDefuncion] = useState(() => new Date().toISOString().split('T')[0]) // <-- Fecha actual por defecto
 
-// Modales
-const [showModal, setShowModal] = useState(false)
-const [editModalOpen, setEditModalOpen] = useState(false)
-const [personaAEditar, setPersonaAEditar] = useState<string | null>(null)
-const [selectedUser, setSelectedUser] = useState<Persona | null>(null)
-const [userToDelete, setUserToDelete] = useState<Persona | null>(null)
-const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null)
+  // Modales
+  const [showModal, setShowModal] = useState(false)
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [personaAEditar, setPersonaAEditar] = useState<string | null>(null)
+  const [selectedUser, setSelectedUser] = useState<Persona | null>(null)
+  const [userToDelete, setUserToDelete] = useState<Persona | null>(null)
+  const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null)
 
-const [totalPersonas, setTotalPersonas] = useState(0);
-const [hombres, setHombres] = useState(0);
-const [mujeres, setMujeres] = useState(0);
+  const [totalPersonas, setTotalPersonas] = useState(0);
+  const [hombres, setHombres] = useState(0);
+  const [mujeres, setMujeres] = useState(0);
 
-useEffect(() => {
-  cargarEstadisticasPersonas();
-}, []);
-
-
-// === Hooks personalizados ===
-function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState(value)
   useEffect(() => {
-    const handler = setTimeout(() => setDebouncedValue(value), delay)
-    return () => clearTimeout(handler)
-  }, [value, delay])
-  return debouncedValue
-}
+    cargarEstadisticasPersonas();
+  }, []);
 
-// === Cargar datos ===
-const fetchPersonas = async () => {
-  setLoading(true)
-  try {
-    const params = new URLSearchParams({
-      page: page.toString(),
-      page_size: '9',
-      activo: 'true',
-    })
 
-    if (debouncedBusqueda) {
-      if (/^\d+$/.test(debouncedBusqueda)) {
-        params.append('id', debouncedBusqueda)
-      } else if (debouncedBusqueda.includes(' ')) {
-        const [n, a] = debouncedBusqueda.split(' ', 2)
-        if (n) params.append('nombre', n)
-        if (a) params.append('apellido', a)
-      } else {
-        params.append('nombre', debouncedBusqueda)
+  // === Hooks personalizados ===
+  function useDebounce<T>(value: T, delay: number): T {
+    const [debouncedValue, setDebouncedValue] = useState(value)
+    useEffect(() => {
+      const handler = setTimeout(() => setDebouncedValue(value), delay)
+      return () => clearTimeout(handler)
+    }, [value, delay])
+    return debouncedValue
+  }
+
+  // === Cargar datos ===
+  const fetchPersonas = async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        page_size: '9',
+        activo: 'true',
+      })
+
+      if (debouncedBusqueda) {
+        if (/^\d+$/.test(debouncedBusqueda)) {
+          params.append('id', debouncedBusqueda)
+        } else if (debouncedBusqueda.includes(' ')) {
+          const [n, a] = debouncedBusqueda.split(' ', 2)
+          if (n) params.append('nombre', n)
+          if (a) params.append('apellido', a)
+        } else {
+          params.append('nombre', debouncedBusqueda)
+        }
       }
+      if (filtroDocumento) params.append('tipoDocumento', filtroDocumento)
+      if (filtroSexo) params.append('sexo', filtroSexo)
+      if (filtroParcialidad) params.append('idParcialidad', filtroParcialidad)
+      if (filtroFamilia) params.append('idFamilia', filtroFamilia)
+
+      const data = await apiFetch<PersonasResponse>(`/personas/?${params.toString()}`)
+      // Ahora, como ya filtramos en el backend, no es necesario filtrar en el frontend
+      setPersonas(data.items) // <-- DIRECTAMENTE
+      setTotalPages(data.total_pages || 1)
+    } catch (err) {
+      console.error('Error cargando personas', err)
+    } finally {
+      setLoading(false)
     }
-    if (filtroDocumento) params.append('tipoDocumento', filtroDocumento)
-    if (filtroSexo) params.append('sexo', filtroSexo)
-    if (filtroParcialidad) params.append('idParcialidad', filtroParcialidad)
-    if (filtroFamilia) params.append('idFamilia', filtroFamilia)
-
-    const data = await apiFetch<PersonasResponse>(`/personas/?${params.toString()}`)
-    // Ahora, como ya filtramos en el backend, no es necesario filtrar en el frontend
-    setPersonas(data.items) // <-- DIRECTAMENTE
-    setTotalPages(data.total_pages || 1)
-  } catch (err) {
-    console.error('Error cargando personas', err)
-  } finally {
-    setLoading(false)
   }
-}
 
-const fetchCatalogos = async () => {
-  try {
-    const dataParcialidades = await apiFetch<ParcialidadResponse>('/parcialidad/?page=1&page_size=100')
-    setParcialidades(dataParcialidades.items)
-    const dataFamilias = await apiFetch<FamiliaResponse>('/familias/?page=1&page_size=100')
-    setFamilias(dataFamilias.items)
-  } catch (err) {
-    console.error('Error cargando catálogos', err)
-  }
-}
-
-
-useEffect(() => {
-  fetchPersonas()
-}, [page, debouncedBusqueda, filtroDocumento, filtroSexo, filtroParcialidad, filtroFamilia])
-
-useEffect(() => {
-  fetchCatalogos()
-}, [])
-
-// === Acciones ===
-const handleVerUsuario = (persona: Persona) => setSelectedUser(persona)
-
-const handleEditar = (id: string) => {
-  setPersonaAEditar(id)
-  setEditModalOpen(true)
-}
-
-const confirmarDefuncion = (persona: Persona) => setUserToDelete(persona)
-const cerrarModal = () => {
-  setSelectedUser(null)
-  setUserToDelete(null)
-  setUploadResult(null)
-}
-
-const defuncionUsuario = async () => {
-  if (!userToDelete) return
-
-  try {
-    // Preparar el payload
-    const fechaActual = new Date().toISOString().split('T')[0]
-    const payload = {
-      id: userToDelete.id,
-      fechaDefuncion: fechaActual,
+  const fetchCatalogos = async () => {
+    try {
+      const dataParcialidades = await apiFetch<ParcialidadResponse>('/parcialidad/?page=1&page_size=100')
+      setParcialidades(dataParcialidades.items)
+      const dataFamilias = await apiFetch<FamiliaResponse>('/familias/?page=1&page_size=100')
+      setFamilias(dataFamilias.items)
+    } catch (err) {
+      console.error('Error cargando catálogos', err)
     }
-
-    // Hacer la solicitud PATCH
-    const res = await apiFetch<{ estado: string; message: string }>(
-      '/personas/register-defuncion',
-      {
-        method: 'PATCH',
-        body: JSON.stringify(payload),
-      }
-    )
-
-    if (res.estado === 'Exitoso') {
-      // Opcional: Actualizar la lista de usuarios localmente para reflejar el cambio
-      // setUsuarios(prev => prev.map(u => u.id === userToDelete.id ? { ...u, activo: false } : u))
-      setUploadResult({ success: true, message: 'Defunción registrada con éxito' })
-    } else {
-      setUploadResult({ success: false, message: res.message || 'Error al registrar defunción' })
-    }
-  } catch (err) {
-    console.error('Error al registrar defunción', err)
-    setUploadResult({ success: false, message: 'Error inesperado al registrar defunción' })
-  } finally {
-    setUserToDelete(null)
   }
-}
 
 
-const handleUploadExcel = async (file: File) => {
-  const formData = new FormData()
-  formData.append('file', file)
-  try {
-    const res = await apiFetch<UploadResponse>('/personas/upload-excel', {
-      method: 'POST',
-      body: formData,
-    })
-    setUploadResult(res)
+  useEffect(() => {
     fetchPersonas()
-  } catch {
-    setUploadResult({
-      status: 'error',
-      insertados: 0,
-      total_procesados: 0,
-      errores: [{ fila: 0, id: '-', mensaje: 'Error al subir el archivo' }],
-    })
+  }, [page, debouncedBusqueda, filtroDocumento, filtroSexo, filtroParcialidad, filtroFamilia])
+
+  useEffect(() => {
+    fetchCatalogos()
+  }, [])
+
+  // === Acciones ===
+  const handleVerUsuario = (persona: Persona) => setSelectedUser(persona)
+
+  const handleEditar = (id: string) => {
+    setPersonaAEditar(id)
+    setEditModalOpen(true)
   }
-}
 
-// === Estadísticas ===
-const cargarEstadisticasPersonas = async () => {
-  try {
-    const data = await apiFetch<any>('/reportes/reportes/resumen');
+  const confirmarDefuncion = (persona: Persona) => setUserToDelete(persona)
 
-    setTotalPersonas(data.total_personas);
-    setHombres(data.total_hombres);
-    setMujeres(data.total_mujeres);
-
-  } catch (error) {
-    console.error("Error cargando estadísticas de personas", error);
+  const cerrarModal = () => {
+    setSelectedUser(null)
+    setUserToDelete(null)
+    setUploadResult(null)
   }
-};
 
-const handleDescargarPersonas = async () => {
+  const defuncionUsuario = async () => {
+    if (!userToDelete || !fechaDefuncion) return // <-- Validar fecha
+
+    try {
+      // Preparar el payload con la fecha seleccionada
+      const payload = {
+        id: userToDelete.id,
+        fechaDefuncion: fechaDefuncion, // <-- USAR LA FECHA SELECCIONADA
+      }
+
+      // Hacer la solicitud PATCH
+      const res = await apiFetch<{ estado: string; message: string }>(
+        '/personas/register-defuncion', // Asumiendo este endpoint
+        {
+          method: 'PATCH', // Asumiendo método PATCH
+          body: JSON.stringify(payload),
+        }
+      )
+
+      if (res.estado === 'Exitoso') {
+        // Opcional: Actualizar la lista de usuarios localmente
+        setPersonas(prev => prev.map(u => u.id === userToDelete.id ? { ...u, activo: false } : u))
+        setUploadResult({ success: true, message: 'Defunción registrada con éxito' })
+      } else {
+        setUploadResult({ success: false, message: res.message || 'Error al registrar defunción' })
+      }
+    } catch (err: any) {
+      console.error('Error al registrar defunción', err)
+      setUploadResult({ success: false, message: err.message || 'Error inesperado al registrar defunción' })
+    } finally {
+      setUserToDelete(null) // <-- Cerrar el modal
+      setFechaDefuncion('') // <-- Limpiar la fecha
+    }
+  }
+
+
+  const handleUploadExcel = async (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    try {
+      const res = await apiFetch<UploadResponse>('/personas/upload-excel', {
+        method: 'POST',
+        body: formData,
+      })
+      setUploadResult(res)
+      fetchPersonas()
+    } catch {
+      setUploadResult({
+        status: 'error',
+        insertados: 0,
+        total_procesados: 0,
+        errores: [{ fila: 0, id: '-', mensaje: 'Error al subir el archivo' }],
+      })
+    }
+  }
+
+  // === Estadísticas ===
+  const cargarEstadisticasPersonas = async () => {
+    try {
+      const data = await apiFetch<any>('/reportes/reportes/resumen');
+
+      setTotalPersonas(data.total_personas);
+      setHombres(data.total_hombres);
+      setMujeres(data.total_mujeres);
+
+    } catch (error) {
+      console.error("Error cargando estadísticas de personas", error);
+    }
+  };
+
+  const handleDescargarPersonas = async () => {
   try {
     // 1. Obtener el token
     const token = localStorage.getItem('token')
@@ -475,83 +477,107 @@ const handleDescargarPersonas = async () => {
         />
       </div>
 
-      {/* Tabla */}
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden mt-6">
-        <div className="overflow-x-auto">
-          <table className="min-w-full">
-            <thead className="bg-[#7d4f2b] text-white sticky top-0 z-10">
-              <tr>
-                <th className="px-5 py-3 text-left text-sm font-medium">Nombre</th>
-                <th className="px-5 py-3 text-left text-sm font-medium">Tipo Doc.</th>
-                <th className="px-5 py-3 text-left text-sm font-medium">Documento</th>
-                <th className="px-5 py-3 text-center text-sm font-medium">Nacimiento</th>
-                <th className="px-5 py-3 text-center text-sm font-medium">Sexo</th>
-                <th className="px-5 py-3 text-center text-sm font-medium">Parcialidad</th>
-                <th className="px-5 py-3 text-center text-sm font-medium">Familia</th>
-                <th className="px-5 py-3 text-center text-sm font-medium">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={8} className="text-center py-6 text-gray-500">
-                    Cargando...
-                  </td>
-                </tr>
-              ) : personas.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="text-center py-6 text-gray-500">
-                    No se encontraron personas
-                  </td>
-                </tr>
-              ) : (
-                personas.map((persona, index) => (
-                  <tr key={persona.id} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
-                    <td className="px-5 py-3 text-gray-800">{persona.nombre} {persona.apellido}</td>
-                    <td className="px-5 py-3 text-gray-800">
-                      {enumDocumento[persona.tipoDocumento as keyof typeof enumDocumento] || persona.tipoDocumento}
-                    </td>
-                    <td className="px-5 py-3 text-gray-800">{persona.id}</td>
-                    <td className="px-5 py-3 text-center text-gray-800">{persona.fechaNacimiento}</td>
-                    <td className="px-5 py-3 text-center text-gray-800">
-                      {enumSexo[persona.sexo as keyof typeof enumSexo] || persona.sexo}
-                    </td>
-                    <td className="px-5 py-3 text-center text-gray-800">
-                      {persona.parcialidad?.nombre || '-'}
-                    </td>
-                    <td className="px-5 py-3 text-center text-gray-800">{persona.idFamilia ?? '-'}</td>
-                    <td className="px-5 py-3 text-center">
-                      <div className="flex justify-center gap-3">
-                        <button
-                          onClick={() => handleVerUsuario(persona)}
-                          className="text-[#7d4f2b] hover:text-blue-600 transition-colors"
-                          title="Ver detalles"
-                        >
-                          <Eye size={18} />
-                        </button>
-                        <button
-                          onClick={() => handleEditar(persona.id)}
-                          className="text-[#7d4f2b] hover:text-blue-600 transition-colors"
-                          title="Editar persona"
-                        >
-                          <Edit3 size={18} />
-                        </button>
-                        <button
-                          onClick={() => confirmarDefuncion(persona)}
-                          className="text-[#7d4f2b] hover:text-red-600 transition-colors"
-                          title="Marcar defunción"
-                        >
-                          <HeartMinus size={18} />
-                        </button>
-                      </div>
-                    </td>
+          {/* Tabla */}
+          <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+            <div className="overflow-x-auto max-h-[70vh]">
+              <table className="min-w-full">
+                <thead className="bg-[#7d4f2b] text-white sticky top-0 z-10">
+                  <tr>
+                    <th className="px-5 py-3 text-left text-sm font-medium">Nombre</th>
+                    <th className="px-5 py-3 text-left text-sm font-medium">Tipo Doc.</th>
+                    <th className="px-5 py-3 text-left text-sm font-medium">Documento</th>
+                    <th className="px-5 py-3 text-center text-sm font-medium">Nacimiento</th>
+                    <th className="px-5 py-3 text-center text-sm font-medium">Sexo</th>
+                    <th className="px-5 py-3 text-center text-sm font-medium">Parcialidad</th>
+                    <th className="px-5 py-3 text-center text-sm font-medium">Familia</th>
+                    {/* === NUEVA COLUMNA: Estado === */}
+                    <th className="px-5 py-3 text-center text-sm font-medium">Estado</th>
+                    {/* ========================== */}
+                    <th className="px-5 py-3 text-center text-sm font-medium">Acciones</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr>
+                      <td colSpan={9} className="text-center py-6 text-gray-500"> {/* Cambiado de 8 a 9 columnas */}
+                        Cargando...
+                      </td>
+                    </tr>
+                  ) : personas.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="text-center py-6 text-gray-500"> {/* Cambiado de 8 a 9 columnas */}
+                        No se encontraron personas
+                      </td>
+                    </tr>
+                  ) : (
+                    personas.map((persona, index) => (
+                      <tr key={persona.id} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                        <td className="px-5 py-3 text-gray-800">{persona.nombre} {persona.apellido}</td>
+                        <td className="px-5 py-3 text-gray-800">
+                          {enumDocumento[persona.tipoDocumento as keyof typeof enumDocumento] || persona.tipoDocumento}
+                        </td>
+                        <td className="px-5 py-3 text-gray-800 font-mono">{persona.id}</td>
+                        <td className="px-5 py-3 text-center text-gray-800">{persona.fechaNacimiento}</td>
+                        <td className="px-5 py-3 text-center text-gray-800">
+                          {enumSexo[persona.sexo as keyof typeof enumSexo] || persona.sexo}
+                        </td>
+                        <td className="px-5 py-3 text-center text-gray-800">
+                          {persona.parcialidad?.nombre || '-'}
+                        </td>
+                        <td className="px-5 py-3 text-center text-gray-800">{persona.idFamilia ?? '-'}</td>
+                        
+                        {/* === Celda de Estado === */}
+                        <td className="px-5 py-3 text-center">
+                          {persona.fechaDefuncion ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                              <CircleX size={12} />
+                              Fallecido
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              <CircleCheck size={12} />
+                              Vivo
+                            </span>
+                          )}
+                        </td>
+                        {/* ===================== */}
+
+                        <td className="px-5 py-3 text-center">
+                          <div className="flex justify-center gap-2">
+                            <button
+                              onClick={() => handleVerUsuario(persona)}
+                              className="text-[#7d4f2b] hover:text-blue-600 transition-colors"
+                              title="Ver detalles"
+                            >
+                              <Eye size={18} />
+                            </button>
+                            <button
+                              onClick={() => handleEditar(persona.id)}
+                              className="text-[#7d4f2b] hover:text-blue-600 transition-colors"
+                              title="Editar persona"
+                            >
+                              <Edit3 size={18} />
+                            </button>
+                            {/* === Botón de defunción condicional === */}
+                            {!persona.fechaDefuncion && ( // <-- Solo mostrar si NO tiene fecha de defunción
+                              <button
+                                onClick={() => confirmarDefuncion(persona)}
+                                className="text-[#7d4f2b] hover:text-red-600 transition-colors"
+                                title="Marcar defunción"
+                              >
+                                <HeartMinus size={18} />
+                              </button>
+                            )}
+                            {/* ==================================== */}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
       {/* Paginación */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-2">
@@ -584,24 +610,43 @@ const handleDescargarPersonas = async () => {
         />
       )}
 
-      {/* Modal: Eliminar */}
+            {/* Modal: Eliminar / Defunción */}
       {userToDelete && (
         <div className="fixed inset-0 z-50 bg-black bg-opacity-40 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-lg p-6 max-w-md w-full relative">
             <button onClick={cerrarModal} className="absolute top-4 right-4 text-gray-500">
               <X size={20} />
             </button>
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">Eliminar persona</h3>
-            <p className="text-gray-600 mb-6">
-              ¿Estás seguro de eliminar a <strong>{userToDelete.nombre} {userToDelete.apellido}</strong>?<br />
-              Esta acción no se puede deshacer.
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">Registrar Defunción</h3>
+            <p className="text-gray-600 mb-4">
+              ¿Estás seguro de registrar la defunción de <strong>{userToDelete.nombre} {userToDelete.apellido}</strong>?
             </p>
+
+            {/* Nuevo campo: Fecha de defunción */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                <Calendar className="text-[#7d4f2b]" size={16} />
+                Fecha de Defunción *
+              </label>
+              <input
+                type="date"
+                value={fechaDefuncion}
+                onChange={(e) => setFechaDefuncion(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-gray-800 focus:ring-2 focus:ring-[#7d4f2b] focus:border-transparent"
+                max={new Date().toISOString().split('T')[0]} // No permitir fechas futuras
+              />
+            </div>
+
+            <div className="text-sm text-gray-500 mb-6">
+              <strong>⚠️ Atención:</strong> Esta acción marcará a la persona como fallecida.
+            </div>
+
             <div className="flex gap-3 justify-end">
               <button onClick={cerrarModal} className="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300">
                 Cancelar
               </button>
               <button onClick={defuncionUsuario} className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">
-                Eliminar
+                Registrar Defunción
               </button>
             </div>
           </div>

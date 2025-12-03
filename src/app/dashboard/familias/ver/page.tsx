@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   Users,
   UserPlus,
@@ -109,6 +109,13 @@ export default function DetalleFamiliaPage() {
   const [loading, setLoading] = useState(false)
 
   // === Cargar datos iniciales ===
+
+  const estadisticas = useMemo(() => {
+    const total = personas.length
+    const vivos = personas.filter(p => !p.fechaDefuncion).length // <-- Vivo si no tiene fecha de defunción
+    const fallecidos = total - vivos
+    return { total, vivos, fallecidos }
+  }, [personas])
 
   // 1. Cargar la familia específica (obteniendo datos del líder)
   const fetchFamilia = async () => {
@@ -400,21 +407,21 @@ const handleDownloadResumen = async () => {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
         <StatCard
           label="Total de Miembros"
-          value={totalPersonas}
+          value={estadisticas.total}
           icon={<Users className="w-5 h-5 sm:w-6 sm:h-6" />}
           bg="bg-[#f8f5f0]"
           color="text-[#7d4f2b]"
         />
         <StatCard
           label="Miembros Vivos"
-          value={activos}
+          value={estadisticas.vivos}
           icon={<CircleCheck className="w-5 h-5 sm:w-6 sm:h-6" />}
           bg="bg-green-50"
           color="text-green-700"
         />
         <StatCard
           label="Miembros Fallecidos"
-          value={inactivos}
+          value={estadisticas.fallecidos}
           icon={<CircleX className="w-5 h-5 sm:w-6 sm:h-6" />}
           bg="bg-red-50"
           color="text-red-700"
@@ -435,16 +442,6 @@ const handleDownloadResumen = async () => {
               <span className="relative z-10">Agregar Persona</span>
             </button>
 
-            <button
-              onClick={() => setShowAgregarExistenteModal(true)}
-              className="relative overflow-hidden bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2 text-sm transition-all duration-300 group hover:shadow-lg hover:-translate-y-0.5"
-            >
-              <span className="absolute inset-0 bg-gradient-to-r from-blue-700 to-blue-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
-              <User className="stroke-[3] relative z-10" size={16} />
-              <span className="relative z-10">Agregar Persona Existente</span>
-            </button>
-
-{/* Botón: Agregar Persona Existente */}
             <button
               onClick={() => setShowAgregarExistenteModal(true)}
               className="relative overflow-hidden bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2 text-sm transition-all duration-300 group hover:shadow-lg hover:-translate-y-0.5"

@@ -33,21 +33,25 @@ export default function RegistrarDefuncionModal({
   // Cargar solo las personas vivas de la familia
   useEffect(() => {
     const cargarPersonas = async () => {
+      setLoading(true)
+      setMensajeError(null)
       try {
         const params = new URLSearchParams({
           idFamilia: familiaId.toString(),
-          activo: 'true', // Filtrar solo personas vivas
           page: '1',
           page_size: '100',
         })
 
         const data = await apiFetch<{ items: Persona[] }>(`/personas/?${params.toString()}`)
-        setPersonas(data.items || [])
+        // === FILTRAR AQUÍ: Solo personas VIVAS (fechaDefuncion === null) ===
+        const personasVivas = data.items.filter(p => p.fechaDefuncion === null)
+        setPersonas(personasVivas)
+        // ===
       } catch (err) {
         console.error('Error al cargar personas para defunción', err)
         setMensajeError('No se pudieron cargar las personas de esta familia.')
       } finally {
-        setLoading(false)
+        setLoading(false) // <-- Asegúrate de desactivar el loading aquí
       }
     }
 
