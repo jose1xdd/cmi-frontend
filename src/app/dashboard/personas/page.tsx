@@ -453,7 +453,7 @@ export default function UsuariosPage() {
       </div>
 
       {/* Tarjetas de estadísticas (opcional) */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mt-4 mb-4">
         <StatCard
           label="Total de personas"
           value={totalPersonas}
