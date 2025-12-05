@@ -22,15 +22,16 @@ import {
   CheckCircle,
   XCircle,
   Search,
+  UserCheck,
 } from 'lucide-react'
 
 // Tipos
 interface Reunion {
   id: number
   titulo: string
-  fecha: string // YYYY-MM-DD
-  horaInicio: string // HH:mm
-  horaFinal: string // HH:mm
+  fecha: string
+  horaInicio: string
+  horaFinal: string
   ubicacion: string
   estado: 'PROGRAMADA' | 'EN_CURSO' | 'COMPLETADA' | 'CERRADA'
   codigo?: string
@@ -60,15 +61,14 @@ function generarCodigoReunion() {
   return parteLetras + parteNumeros;
 }
 
-
 export default function DetalleReunionPage() {
   const router = useRouter()
   const params = useParams()
   const reunionId = Number(params.id)
 
   // Estados
-  const [reunionOriginal, setReunionOriginal] = useState<Reunion | null>(null) // Datos originales
-  const [reunion, setReunion] = useState<Reunion | null>(null) // Datos editables
+  const [reunionOriginal, setReunionOriginal] = useState<Reunion | null>(null)
+  const [reunion, setReunion] = useState<Reunion | null>(null)
   const [asistentes, setAsistentes] = useState<Asistente[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingAsistentes, setLoadingAsistentes] = useState(true)
@@ -89,13 +89,18 @@ export default function DetalleReunionPage() {
   // Estados para paginación de asistentes
   const [pageAsistentes, setPageAsistentes] = useState(1)
   const [totalPagesAsistentes, setTotalPagesAsistentes] = useState(1)
-  const [totalAsistentes, setTotalAsistentes] = useState(0) // Este estado se puede usar para mostrar el total
+  const [totalAsistentes, setTotalAsistentes] = useState(0)
 
   const ultimosContadores = useRef({
     personasPresentes: 0,
     personasAusentes: 0,
     totalAsistentes: 0,
   })
+
+  // Estados para asistencia manual
+  const [modoAsistenciaManual, setModoAsistenciaManual] = useState(false)
+  const [asistenciasTemporales, setAsistenciasTemporales] = useState<Map<string, boolean>>(new Map())
+  const [guardandoAsistencias, setGuardandoAsistencias] = useState(false)
 
   // === Cargar datos ===
   const fetchReunion = async () => {
@@ -113,56 +118,58 @@ export default function DetalleReunionPage() {
     }
   }
 
-// En fetchAsistentes
-const fetchAsistentes = async () => {
-  setLoadingAsistentes(true)
-  try {
-    const params = new URLSearchParams({
-      page: pageAsistentes.toString(),
-      page_size: '10',
-    })
-    if (busqueda) {
-      params.append('q', busqueda)
+  const fetchAsistentes = async (silencioso = false) => {
+    if (!silencioso) {
+      setLoadingAsistentes(true)
     }
+    try {
+      const params = new URLSearchParams({
+        page: pageAsistentes.toString(),
+        page_size: '10',
+      })
+      if (busqueda) {
+        params.append('q', busqueda)
+      }
 
-    // Asumiendo que este endpoint devuelve la nueva estructura
-    const data = await apiFetch<any>(
-      `/asistencia/asistencia/${reunionId}/personas?${params.toString()}`
-    )
+      const data = await apiFetch<any>(
+        `/asistencia/asistencia/${reunionId}/personas?${params.toString()}`
+      )
 
-    // Actualizar estados con los nuevos campos
-    setAsistentes(data.items || [])
-    setPersonasPresentes(data.personas_presentes || 0)
-    setPersonasAusentes(data.personas_ausentes || 0)
-    setTotalAsistentes(data.total_items || 0)
-    setTotalPagesAsistentes(data.total_pages || 1)
-    // Opcional: sincronizar página actual si cambia desde el backend
-    // setPageAsistentes(data.current_page)
-  } catch (err) {
-    console.error('Error al cargar asistentes', err)
-    setAsistentes([])
-    setPersonasPresentes(0)
-    setPersonasAusentes(0)
-    setTotalAsistentes(0)
-    setTotalPagesAsistentes(1)
-  } finally {
-    setLoadingAsistentes(false)
+      setAsistentes(data.items || [])
+      setPersonasPresentes(data.personas_presentes || 0)
+      setPersonasAusentes(data.personas_ausentes || 0)
+      setTotalAsistentes(data.total_items || 0)
+      setTotalPagesAsistentes(data.total_pages || 1)
+    } catch (err) {
+      console.error('Error al cargar asistentes', err)
+      if (!silencioso) {
+        setAsistentes([])
+        setPersonasPresentes(0)
+        setPersonasAusentes(0)
+        setTotalAsistentes(0)
+        setTotalPagesAsistentes(1)
+      }
+    } finally {
+      if (!silencioso) {
+        setLoadingAsistentes(false)
+      }
+    }
   }
-}
 
-  // === Cargar solo estadísticas ===
   const fetchEstadisticasAsistentes = async () => {
     try {
       const params = new URLSearchParams({
-        page: '1', // Solo para obtener el total
-        page_size: '1',
-        reunion_id: reunionId.toString(),
+        page: pageAsistentes.toString(),
+        page_size: '10',
       })
+      if (busqueda) {
+        params.append('q', busqueda)
+      }
+      
       const data = await apiFetch<{ personas_presentes: number; personas_ausentes: number; total_items: number; items: Asistente[]; total_pages: number }>(
         `/asistencia/asistencia/${reunionId}/personas?${params.toString()}`
       )
 
-      // Comparar con los últimos valores almacenados
       const nuevosContadores = {
         personasPresentes: data.personas_presentes || 0,
         personasAusentes: data.personas_ausentes || 0,
@@ -172,23 +179,22 @@ const fetchAsistentes = async () => {
       const { personasPresentes: antP, personasAusentes: antA, totalAsistentes: antT } = ultimosContadores.current
       const { personasPresentes: nueP, personasAusentes: nueA, totalAsistentes: nueT } = nuevosContadores
 
-      // Solo actualizar si hubo un cambio
       if (antP !== nueP || antA !== nueA || antT !== nueT) {
-        console.log('Contadores cambiaron, actualizando UI...')
+        console.log('Contadores cambiaron, actualizando UI suavemente...')
+        
+        // Actualizar estadísticas
         setPersonasPresentes(nueP)
         setPersonasAusentes(nueA)
         setTotalAsistentes(nueT)
+        
+        // Actualizar tabla sin mostrar loading
+        setAsistentes(data.items || [])
+        setTotalPagesAsistentes(data.total_pages || 1)
 
-        // Almacenar nuevos valores como "últimos"
         ultimosContadores.current = nuevosContadores
-
-        // Opcional: Recargar la tabla de asistentes si los contadores cambiaron
-        fetchAsistentes()
       }
-      // Si no cambió, no hacer setState ni recargar tabla
     } catch (err) {
       console.error('Error al cargar estadísticas de asistentes', err)
-      // No mostrar error aquí si no es crítico
     }
   }
 
@@ -199,25 +205,24 @@ const fetchAsistentes = async () => {
     }
   }, [reunionId])
 
-    useEffect(() => {
+  useEffect(() => {
     if (reunionId) {
       fetchAsistentes()
     }
   }, [reunionId, pageAsistentes, busqueda])
 
-    // === EFECTO: Actualizar estadísticas cada 5 segundos ===
   useEffect(() => {
-    if (!reunionId) return // No hacer nada si no hay reunión
+    if (!reunionId) return
 
     const interval = setInterval(() => {
-      fetchEstadisticasAsistentes()
-    }, 5000) // <-- Cada 5 segundos
+      if (!modoAsistenciaManual) {
+        fetchEstadisticasAsistentes()
+      }
+    }, 5000) // Cambiado a 15 segundos
 
-    // Limpiar el intervalo al desmontar el componente o si cambia reunionId
     return () => clearInterval(interval)
-  }, [reunionId])
+  }, [reunionId, modoAsistenciaManual, pageAsistentes, busqueda])
 
-  // Filtrar asistentes cuando cambia la búsqueda
   useEffect(() => {
     const filtrados = asistentes.filter(a =>
       a.Nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
@@ -227,13 +232,104 @@ const fetchAsistentes = async () => {
     setAsistentesFiltrados(filtrados)
   }, [asistentes, busqueda])
 
-  // === Funciones de acción ===
+  // === Funciones de asistencia manual ===
+  const habilitarAsistenciaManual = () => {
+    // Inicializar el mapa con el estado actual de asistencias
+    const mapaInicial = new Map<string, boolean>()
+    asistentes.forEach(a => {
+      mapaInicial.set(a.Numero_documento, a.Asistencia)
+    })
+    setAsistenciasTemporales(mapaInicial)
+    setModoAsistenciaManual(true)
+  }
 
+  const cancelarAsistenciaManual = () => {
+    setModoAsistenciaManual(false)
+    setAsistenciasTemporales(new Map())
+  }
+
+  const toggleAsistenciaTemporal = (numeroDocumento: string, asistenciaActual: boolean) => {
+    setAsistenciasTemporales(prev => {
+      const nuevo = new Map(prev)
+      nuevo.set(numeroDocumento, !asistenciaActual)
+      return nuevo
+    })
+  }
+
+  const marcarTodosPresentes = () => {
+    setAsistenciasTemporales(prev => {
+      const nuevo = new Map(prev)
+      asistentesFiltrados.forEach(a => {
+        nuevo.set(a.Numero_documento, true)
+      })
+      return nuevo
+    })
+  }
+
+  const guardarAsistencias = async () => {
+    setGuardandoAsistencias(true)
+    try {
+      const cambios: Array<{ persona_id: string; nuevoEstado: boolean; estadoOriginal: boolean }> = []
+      
+      // Identificar cambios
+      asistentes.forEach(a => {
+        const nuevoEstado = asistenciasTemporales.get(a.Numero_documento)
+        if (nuevoEstado !== undefined && nuevoEstado !== a.Asistencia) {
+          cambios.push({
+            persona_id: a.Numero_documento,
+            nuevoEstado,
+            estadoOriginal: a.Asistencia
+          })
+        }
+      })
+
+      if (cambios.length === 0) {
+        setMensajeModal('No hay cambios para guardar.')
+        setShowSuccessModal(true)
+        setModoAsistenciaManual(false)
+        return
+      }
+
+      // Ejecutar todos los cambios
+      const promesas = cambios.map(async (cambio) => {
+        if (cambio.nuevoEstado && !cambio.estadoOriginal) {
+          // Marcar asistencia (POST)
+          return apiFetch(`/asistencia/asistencia/assign/${reunionId}`, {
+            method: 'POST',
+            body: JSON.stringify({ persona_id: cambio.persona_id })
+          })
+        } else if (!cambio.nuevoEstado && cambio.estadoOriginal) {
+          // Eliminar asistencia (DELETE)
+          return apiFetch(`/asistencia/asistencia/${reunionId}/${cambio.persona_id}`, {
+            method: 'DELETE'
+          })
+        }
+      })
+
+      await Promise.all(promesas)
+
+      setMensajeModal(`Se actualizaron ${cambios.length} asistencia(s) correctamente.`)
+      setShowSuccessModal(true)
+      setModoAsistenciaManual(false)
+      setAsistenciasTemporales(new Map())
+      
+      // Recargar datos silenciosamente (sin spinner)
+      await fetchAsistentes(true)
+      
+    } catch (err: any) {
+      console.error('Error al guardar asistencias', err)
+      setMensajeModal(err.message || 'Error al guardar las asistencias.')
+      setShowSuccessModal(true)
+    } finally {
+      setGuardandoAsistencias(false)
+    }
+  }
+
+  // === Funciones de acción ===
   const handleEditar = () => setModoEdicion(true)
 
   const handleCancelarEdicion = () => {
     setModoEdicion(false)
-    // Revertir cambios: restaurar los datos originales
     if (reunionOriginal) {
       setReunion({ ...reunionOriginal })
     }
@@ -242,7 +338,6 @@ const fetchAsistentes = async () => {
   const handleGuardar = async () => {
     if (!reunion) return
     try {
-      // Asegúrate de que los campos obligatorios no estén vacíos
       if (!reunion.titulo || !reunion.fecha || !reunion.horaInicio || !reunion.horaFinal) {
         setMensajeModal('Por favor complete todos los campos obligatorios.')
         setShowSuccessModal(true)
@@ -250,14 +345,13 @@ const fetchAsistentes = async () => {
       }
 
       const payload = {
-        id: reunion.id, // Asegúrate de no sobrescribir el ID
+        id: reunion.id,
         titulo: reunion.titulo,
         fecha: reunion.fecha,
         horaInicio: reunion.horaInicio,
         horaFinal: reunion.horaFinal,
         ubicacion: reunion.ubicacion,
-        estado: reunion.estado, // Si el estado no debe cambiar, envíalo igual
-        // Añade aquí otros campos que puedan ser editables
+        estado: reunion.estado,
       }
 
       await apiFetch(`/reunion/reunion/${reunion.id}`, {
@@ -268,8 +362,6 @@ const fetchAsistentes = async () => {
       setModoEdicion(false)
       setMensajeModal('Reunión actualizada con éxito.')
       setShowSuccessModal(true)
-      // Opcional: recargar datos para reflejar cambios si es necesario
-      // fetchReunion()
     } catch (err: any) {
       console.error('Error al guardar reunión', err)
       setMensajeModal(err.message || 'No se pudieron guardar los cambios.')
@@ -287,14 +379,13 @@ const fetchAsistentes = async () => {
       await apiFetch(`/reunion/reunion/${reunion.id}/cerrar`, { method: 'PATCH' })
       setMensajeModal('Reunión cerrada exitosamente.')
       setShowSuccessModal(true)
-      fetchReunion() // Refrescar estado
+      fetchReunion()
     } catch (err: any) {
       console.error('Error al cerrar reunión', err)
       setMensajeModal(err.message || 'No se pudo cerrar la reunión.')
       setShowSuccessModal(true)
     }
   }
-  
 
   const handleAbrirReunion = async () => {
     if (!reunion) return
@@ -306,7 +397,7 @@ const fetchAsistentes = async () => {
       await apiFetch(`/reunion/reunion/${reunion.id}/abrir`, { method: 'PATCH' })
       setMensajeModal('Reunión abierta exitosamente.')
       setShowSuccessModal(true)
-      fetchReunion() // Refrescar estado
+      fetchReunion()
     } catch (err: any) {
       console.error('Error al abrir reunión', err)
       setMensajeModal(err.message || 'No se pudo abrir la reunión.')
@@ -322,20 +413,17 @@ const fetchAsistentes = async () => {
     }
 
     try {
-      // 1. Obtener token
       const token = localStorage.getItem('token')
       if (!token) {
         throw new Error('No hay token de sesión.')
       }
 
-      // 2. Hacer la solicitud al endpoint
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://backend-quillacinga.ddns.net/cmi-apigateway'}/reportes/reporte/asistencia/${reunion.id}`,
         {
           method: 'GET',
           headers: {
             Authorization: `Bearer ${token}`,
-            // No se necesita Accept: 'application/json' si el backend devuelve el archivo directamente
           },
         }
       )
@@ -344,16 +432,12 @@ const fetchAsistentes = async () => {
         throw new Error(`Error ${response.status}: ${response.statusText}`)
       }
 
-      // 3. Obtener el blob del archivo
       const blob = await response.blob()
-
-      // 4. Crear URL y enlace para descargar
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      // Opcional: extraer nombre del archivo del header 'content-disposition'
       const disposition = response.headers.get('Content-Disposition')
-      let filename = `informe_asistencia_reunion_${reunion.id}.xlsx` // nombre por defecto
+      let filename = `informe_asistencia_reunion_${reunion.id}.xlsx`
       if (disposition && disposition.includes('attachment')) {
         const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/
         const matches = filenameRegex.exec(disposition)
@@ -366,8 +450,6 @@ const fetchAsistentes = async () => {
       document.body.appendChild(link)
       link.click()
       link.remove()
-
-      // 5. Liberar la URL del objeto
       window.URL.revokeObjectURL(url)
     } catch (err: any) {
       console.error('Error al descargar informe de asistencia', err)
@@ -394,11 +476,9 @@ const fetchAsistentes = async () => {
     }
   }
 
-
   const handleImprimirCodigo = () => {
     window.print()
   }
-
 
   const cerrarModal = () => {
     setShowSuccessModal(false)
@@ -518,11 +598,10 @@ const fetchAsistentes = async () => {
               </button>
             )}
 
-            {/* PROGRAMADA → ABRIR */}
             {reunion.estado === "PROGRAMADA" && (
               <button
                 onClick={handleAbrirReunion}
-                className="flex items-center gap-1  bg-green-600 text-white px-3 py-1 rounded-md transition-all duration-300 group hover:shadow-lg hover:-translate-y-[2px]"
+                className="flex items-center gap-1 bg-green-600 text-white px-3 py-1 rounded-md transition-all duration-300 group hover:shadow-lg hover:-translate-y-[2px]"
               >
                 <CheckCircle size={16} /> Abrir reunión
               </button>
@@ -550,7 +629,6 @@ const fetchAsistentes = async () => {
           </h2>
 
           <div className="space-y-4">
-            {/* Título */}
             <div className="info-row grid grid-cols-[140px_1fr] py-3 border-b border-gray-100">
               <span className="info-label text-sm font-medium text-gray-600">Título:</span>
               <span className="info-value font-medium text-gray-800">
@@ -567,7 +645,6 @@ const fetchAsistentes = async () => {
               </span>
             </div>
 
-            {/* Fecha */}
             <div className="info-row grid grid-cols-[140px_1fr] py-3 border-b border-gray-100">
               <span className="info-label text-sm font-medium text-gray-600">Fecha:</span>
               <span className="info-value font-medium text-gray-800">
@@ -593,7 +670,6 @@ const fetchAsistentes = async () => {
               </span>
             </div>
 
-            {/* Hora Inicio */}
             <div className="info-row grid grid-cols-[140px_1fr] py-3 border-b border-gray-100">
               <span className="info-label text-sm font-medium text-gray-600">Hora inicio:</span>
               <span className="info-value font-medium text-gray-800">
@@ -620,7 +696,6 @@ const fetchAsistentes = async () => {
               </span>
             </div>
 
-            {/* Hora Fin */}
             <div className="info-row grid grid-cols-[140px_1fr] py-3 border-b border-gray-100">
               <span className="info-label text-sm font-medium text-gray-600">Hora fin:</span>
               <span className="info-value font-medium text-gray-800">
@@ -647,7 +722,6 @@ const fetchAsistentes = async () => {
               </span>
             </div>
 
-            {/* Duración (solo lectura) */}
             <div className="info-row grid grid-cols-[140px_1fr] py-3 border-b border-gray-100">
               <span className="info-label text-sm font-medium text-gray-600">Duración:</span>
               <span className="info-value font-medium text-gray-800">
@@ -666,7 +740,6 @@ const fetchAsistentes = async () => {
               </span>
             </div>
 
-            {/* Ubicación */}
             <div className="info-row grid grid-cols-[140px_1fr] py-3 border-b border-gray-100">
               <span className="info-label text-sm font-medium text-gray-600">Ubicación:</span>
               <span className="info-value font-medium text-gray-800">
@@ -683,7 +756,6 @@ const fetchAsistentes = async () => {
               </span>
             </div>
 
-            {/* Estado (solo lectura) */}
             <div className="info-row grid grid-cols-[140px_1fr] py-3">
               <span className="info-label text-sm font-medium text-gray-600">Estado:</span>
               <span className="info-value font-medium">
@@ -721,7 +793,6 @@ const fetchAsistentes = async () => {
           </p>
 
           <div className="flex flex-wrap gap-2 justify-center">
-            {/* Copiar código manual */}
             <button
               onClick={handleCopiarCodigo}
               className="bg-white/20 text-white px-3 py-1.5 rounded text-xs font-medium hover:bg-white/30 transition-colors flex items-center gap-1"
@@ -730,7 +801,6 @@ const fetchAsistentes = async () => {
               Copiar Código
             </button>
 
-            {/* Descargar QR generado */}
             <button
               onClick={() => {
                 const canvas = document.querySelector("canvas") as HTMLCanvasElement;
@@ -758,16 +828,61 @@ const fetchAsistentes = async () => {
             </button>
           </div>
         </div>
-
       </div>
 
       {/* Sección de asistentes */}
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-        <div className="p-5 border-b border-gray-200 flex justify-between items-center">
+        <div className="p-5 border-b border-gray-200 flex flex-wrap justify-between items-center gap-4">
           <h2 className="text-xl font-semibold text-[#2c3e50] flex items-center gap-2">
             <Users size={20} className="text-[#7d4f2b]" />
             Lista de Asistentes ({asistentes.length})
           </h2>
+          
+          {/* Botones de modo asistencia manual */}
+          {!modoAsistenciaManual ? (
+            <button
+              onClick={habilitarAsistenciaManual}
+              className="relative overflow-hidden bg-[#7d4f2b] text-white px-4 py-2 rounded flex items-center gap-2 text-sm transition-all duration-300 group hover:shadow-lg hover:-translate-y-[2px]"
+            >
+              <span className="absolute inset-0 bg-gradient-to-r from-[#5e3c1f] to-[#7d4f2b] opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+              <UserCheck size={16} className="stroke-[3] relative z-10" />
+              <span className="relative z-10">Asistencia Manual</span>
+            </button>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={marcarTodosPresentes}
+                className="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-colors flex items-center gap-1"
+              >
+                <CheckCircle size={16} />
+                Marcar Todos
+              </button>
+              <button
+                onClick={guardarAsistencias}
+                disabled={guardandoAsistencias}
+                className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {guardandoAsistencias ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    Guardando...
+                  </>
+                ) : (
+                  <>
+                    <Save size={16} />
+                    Guardar Cambios
+                  </>
+                )}
+              </button>
+              <button
+                onClick={cancelarAsistenciaManual}
+                className="bg-gray-600 text-white px-4 py-2 rounded text-sm hover:bg-gray-700 transition-colors flex items-center gap-1"
+              >
+                <X size={16} />
+                Cancelar
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="p-5">
@@ -806,6 +921,28 @@ const fetchAsistentes = async () => {
               <table className="min-w-full">
                 <thead className="bg-[#f8f9fa] text-[#2c3e50] sticky top-0 z-10">
                   <tr>
+                    {modoAsistenciaManual && (
+                      <th className="px-5 py-3 text-center text-sm font-semibold uppercase tracking-wider w-16">
+                        <input
+                          type="checkbox"
+                          checked={asistentesFiltrados.every(a => asistenciasTemporales.get(a.Numero_documento))}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              marcarTodosPresentes()
+                            } else {
+                              setAsistenciasTemporales(prev => {
+                                const nuevo = new Map(prev)
+                                asistentesFiltrados.forEach(a => {
+                                  nuevo.set(a.Numero_documento, false)
+                                })
+                                return nuevo
+                              })
+                            }
+                          }}
+                          className="w-4 h-4 text-[#7d4f2b] rounded focus:ring-2 focus:ring-[#7d4f2b] cursor-pointer"
+                        />
+                      </th>
+                    )}
                     <th className="px-5 py-3 text-left text-sm font-semibold uppercase tracking-wider">Documento</th>
                     <th className="px-5 py-3 text-left text-sm font-semibold uppercase tracking-wider">Nombre</th>
                     <th className="px-5 py-3 text-left text-sm font-semibold uppercase tracking-wider">Apellido</th>
@@ -813,54 +950,70 @@ const fetchAsistentes = async () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {asistentesFiltrados.map((a, index) => (
-                    <tr key={a.Numero_documento} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
-                      <td className="px-5 py-3 text-gray-800 font-mono">{a.Numero_documento}</td>
-                      <td className="px-5 py-3 text-gray-800">{a.Nombre}</td>
-                      <td className="px-5 py-3 text-gray-800">{a.Apellido}</td>
-                      <td className="px-5 py-3 text-center">
-                        {a.Asistencia ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            <CheckCircle size={12} />
-                            Asistió
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                            <XCircle size={12} />
-                            No asistió
-                          </span>
+                  {asistentesFiltrados.map((a, index) => {
+                    const asistenciaActual = modoAsistenciaManual 
+                      ? (asistenciasTemporales.get(a.Numero_documento) ?? a.Asistencia)
+                      : a.Asistencia
+                    
+                    return (
+                      <tr key={a.Numero_documento} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                        {modoAsistenciaManual && (
+                          <td className="px-5 py-3 text-center">
+                            <input
+                              type="checkbox"
+                              checked={asistenciaActual}
+                              onChange={() => toggleAsistenciaTemporal(a.Numero_documento, asistenciaActual)}
+                              className="w-4 h-4 text-[#7d4f2b] rounded focus:ring-2 focus:ring-[#7d4f2b] cursor-pointer"
+                            />
+                          </td>
                         )}
-                      </td>
-                    </tr>
-                  ))}
+                        <td className="px-5 py-3 text-gray-800 font-mono">{a.Numero_documento}</td>
+                        <td className="px-5 py-3 text-gray-800">{a.Nombre}</td>
+                        <td className="px-5 py-3 text-gray-800">{a.Apellido}</td>
+                        <td className="px-5 py-3 text-center">
+                          {asistenciaActual ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              <CheckCircle size={12} />
+                              Asistió
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                              <XCircle size={12} />
+                              No asistió
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             )}
           </div>
-            {/* === PAGINACIÓN DE ASISTENTES === */}
-            {totalPagesAsistentes > 1 && (
-              <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4 mt-4 border-t border-gray-200">
-                <div className="text-sm text-gray-600">
-                  Página {pageAsistentes} de {totalPagesAsistentes}
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setPageAsistentes(prev => Math.max(prev - 1, 1))}
-                    disabled={pageAsistentes <= 1}
-                    className="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    Anterior
-                  </button>
-                  <button
-                    onClick={() => setPageAsistentes(prev => Math.min(prev + 1, totalPagesAsistentes))}
-                    disabled={pageAsistentes >= totalPagesAsistentes}
-                    className="px-4 py-2 rounded-lg bg-[#7d4f2b] text-white hover:bg-[#5e3c1f] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    Siguiente
-                  </button>
-                </div>
+          
+          {totalPagesAsistentes > 1 && (
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4 mt-4 border-t border-gray-200">
+              <div className="text-sm text-gray-600">
+                Página {pageAsistentes} de {totalPagesAsistentes}
               </div>
-            )}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setPageAsistentes(prev => Math.max(prev - 1, 1))}
+                  disabled={pageAsistentes <= 1}
+                  className="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Anterior
+                </button>
+                <button
+                  onClick={() => setPageAsistentes(prev => Math.min(prev + 1, totalPagesAsistentes))}
+                  disabled={pageAsistentes >= totalPagesAsistentes}
+                  className="px-4 py-2 rounded-lg bg-[#7d4f2b] text-white hover:bg-[#5e3c1f] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Siguiente
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
