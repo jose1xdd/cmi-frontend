@@ -1,8 +1,8 @@
 export const enumEscolaridad = {
+  NI: 'Ninguna',
   PR: 'Primaria',
   SE: 'Secundaria',
   UN: 'Universitaria',
-  NI: 'Ninguna',
 }
 
 export const enumEstadoCivil = {

@@ -64,8 +64,8 @@ export default function Home() {
               <Image
                 src="/quillacinga.png"
                 alt="Logo Quillacinga"
-                width={90}
-                height={90}
+                width={120}
+                height={120}
                 className="rounded-full border-4 border-[#e6c7a0]/30 shadow-2xl"
               />
             </div>

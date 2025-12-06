@@ -41,9 +41,6 @@ export default function CrearFamiliaModal({
       const personaActual = await apiFetch<Persona>(`/personas/${idPersonaLider}`)
       // Preparar payload
 
-      console.log(familiaRes)
-      console.log(personaActual)
-
       const payload = {
         "familia_id": familiaRes.data.id,
         "personas_id": [

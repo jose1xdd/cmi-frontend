@@ -91,22 +91,24 @@ export default function PasoCrearPersonaLider({
         idParcialidad: data.parcialidad ? Number(data.parcialidad) : 0,
       }
 
-      const nuevaPersona = await apiFetch<any>('/personas/create', {
+
+      await apiFetch<any>('/personas/create', {
         method: 'POST',
         body: JSON.stringify(payload),
       })
 
+
       const familiaRes = await apiFetch<{ id: number }>(`/familias/create`, {
         method: 'POST',
         body: JSON.stringify({
-          "representante_id": data.identificacion,
+          "representante_id": payload.id,
           "estado": "ACTIVA"
         }),
       })
 
       const payload2 = {
         familia_id: Number(familiaRes.data.id), // convertir a número si tu API espera integer
-        personas_id: [data.identificacion],       // arreglo de ids (strings según tu spec)
+        personas_id: [payload.id],       // arreglo de ids (strings según tu spec)
       }
 
       const res = await apiFetch<{ success?: boolean; message?: string }>(
@@ -116,6 +118,14 @@ export default function PasoCrearPersonaLider({
           body: JSON.stringify(payload2),
         }
       )
+
+      await apiFetch(`/familias/update`, {
+        method: 'PUT',
+        body: JSON.stringify({
+            familiaId: Number(familiaRes.data.id),
+            representanteId: data.identificacion,
+        }),
+        })
 
       onSuccess()
     } catch (err: any) {

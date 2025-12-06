@@ -80,7 +80,6 @@ export default function DetalleReunionPage() {
   const [mensajeModal, setMensajeModal] = useState<string | null>(null)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [busqueda, setBusqueda] = useState('')
-  const [asistentesFiltrados, setAsistentesFiltrados] = useState<Asistente[]>([])
 
   // Estados para estadísticas de asistentes
   const [personasPresentes, setPersonasPresentes] = useState(0)
@@ -128,7 +127,7 @@ export default function DetalleReunionPage() {
         page_size: '10',
       })
       if (busqueda) {
-        params.append('q', busqueda)
+        params.append('query', busqueda)
       }
 
       const data = await apiFetch<any>(
@@ -163,7 +162,7 @@ export default function DetalleReunionPage() {
         page_size: '10',
       })
       if (busqueda) {
-        params.append('q', busqueda)
+        params.append('query', busqueda)
       }
       
       const data = await apiFetch<{ personas_presentes: number; personas_ausentes: number; total_items: number; items: Asistente[]; total_pages: number }>(
@@ -211,6 +210,11 @@ export default function DetalleReunionPage() {
     }
   }, [reunionId, pageAsistentes, busqueda])
 
+  // Resetear a página 1 cuando cambia la búsqueda
+  useEffect(() => {
+    setPageAsistentes(1)
+  }, [busqueda])
+
   useEffect(() => {
     if (!reunionId) return
 
@@ -218,19 +222,10 @@ export default function DetalleReunionPage() {
       if (!modoAsistenciaManual) {
         fetchEstadisticasAsistentes()
       }
-    }, 5000) // Cambiado a 15 segundos
+    }, 5000)
 
     return () => clearInterval(interval)
   }, [reunionId, modoAsistenciaManual, pageAsistentes, busqueda])
-
-  useEffect(() => {
-    const filtrados = asistentes.filter(a =>
-      a.Nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-      a.Apellido.toLowerCase().includes(busqueda.toLowerCase()) ||
-      a.Numero_documento.includes(busqueda)
-    )
-    setAsistentesFiltrados(filtrados)
-  }, [asistentes, busqueda])
 
   // === Funciones de asistencia manual ===
   const habilitarAsistenciaManual = () => {
@@ -259,7 +254,7 @@ export default function DetalleReunionPage() {
   const marcarTodosPresentes = () => {
     setAsistenciasTemporales(prev => {
       const nuevo = new Map(prev)
-      asistentesFiltrados.forEach(a => {
+      asistentes.forEach(a => {
         nuevo.set(a.Numero_documento, true)
       })
       return nuevo
@@ -915,7 +910,7 @@ export default function DetalleReunionPage() {
           <div className="overflow-x-auto max-h-[50vh]">
             {loadingAsistentes ? (
               <p className="text-center text-gray-500 py-4">Cargando asistentes...</p>
-            ) : asistentesFiltrados.length === 0 ? (
+            ) : asistentes.length === 0 ? (
               <p className="text-center text-gray-500 py-4">No se encontraron asistentes</p>
             ) : (
               <table className="min-w-full">
@@ -925,14 +920,14 @@ export default function DetalleReunionPage() {
                       <th className="px-5 py-3 text-center text-sm font-semibold uppercase tracking-wider w-16">
                         <input
                           type="checkbox"
-                          checked={asistentesFiltrados.every(a => asistenciasTemporales.get(a.Numero_documento))}
+                          checked={asistentes.every(a => asistenciasTemporales.get(a.Numero_documento))}
                           onChange={(e) => {
                             if (e.target.checked) {
                               marcarTodosPresentes()
                             } else {
                               setAsistenciasTemporales(prev => {
                                 const nuevo = new Map(prev)
-                                asistentesFiltrados.forEach(a => {
+                                asistentes.forEach(a => {
                                   nuevo.set(a.Numero_documento, false)
                                 })
                                 return nuevo
@@ -950,7 +945,7 @@ export default function DetalleReunionPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {asistentesFiltrados.map((a, index) => {
+                  {asistentes.map((a, index) => {
                     const asistenciaActual = modoAsistenciaManual 
                       ? (asistenciasTemporales.get(a.Numero_documento) ?? a.Asistencia)
                       : a.Asistencia

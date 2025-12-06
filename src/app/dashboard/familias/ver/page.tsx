@@ -247,67 +247,67 @@ export default function DetalleFamiliaPage() {
     }
   }
 
-const handleDownloadResumen = async () => {
-  if (!familiaId) {
-    return
-  }
-
-  try {
-    setLoading(true)
-
-    // 1. Obtener token
-    const token = localStorage.getItem('token')
-    if (!token) {
-      throw new Error('No hay token de sesión.')
+  const handleDownloadResumen = async () => {
+    if (!familiaId) {
+      return
     }
 
-    // 2. Hacer la solicitud al endpoint de reporte
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://backend-quillacinga.ddns.net/cmi-apigateway'}/reportes/reporte/familia/${familiaId}`,
-      {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+    try {
+      setLoading(true)
+
+      // 1. Obtener token
+      const token = localStorage.getItem('token')
+      if (!token) {
+        throw new Error('No hay token de sesión.')
       }
-    )
 
-    if (!response.ok) {
-      throw new Error(`Error ${response.status}: ${response.statusText}`)
-    }
+      // 2. Hacer la solicitud al endpoint de reporte
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://backend-quillacinga.ddns.net/cmi-apigateway'}/reportes/reporte/familia/${familiaId}`,
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      )
 
-    // 3. Obtener el blob del archivo
-    const blob = await response.blob()
-
-    // 4. Crear URL y enlace para descargar
-    const url = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-
-    // Opcional: extraer nombre del archivo del header 'content-disposition'
-    const disposition = response.headers.get('Content-Disposition')
-    let filename = `informe_familia_${familiaId}.xlsx` // nombre por defecto
-    if (disposition && disposition.includes('attachment')) {
-      const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/
-      const matches = filenameRegex.exec(disposition)
-      if (matches != null && matches[1]) {
-        filename = matches[1].replace(/['"]/g, '')
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`)
       }
+
+      // 3. Obtener el blob del archivo
+      const blob = await response.blob()
+
+      // 4. Crear URL y enlace para descargar
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+
+      // Opcional: extraer nombre del archivo del header 'content-disposition'
+      const disposition = response.headers.get('Content-Disposition')
+      let filename = `informe_familia_${familiaId}.xlsx` // nombre por defecto
+      if (disposition && disposition.includes('attachment')) {
+        const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/
+        const matches = filenameRegex.exec(disposition)
+        if (matches != null && matches[1]) {
+          filename = matches[1].replace(/['"]/g, '')
+        }
+      }
+      link.download = filename
+
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+
+      // 5. Liberar la URL del objeto
+      window.URL.revokeObjectURL(url)
+    } catch (err: any) {
+      console.error('Error al descargar informe familiar', err)
+    } finally {
+      setLoading(false)
     }
-    link.download = filename
-
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-
-    // 5. Liberar la URL del objeto
-    window.URL.revokeObjectURL(url)
-  } catch (err: any) {
-    console.error('Error al descargar informe familiar', err)
-  } finally {
-    setLoading(false)
   }
-}
 
   const eliminarUsuario = async () => {
     if (!userToDelete) return
@@ -316,7 +316,7 @@ const handleDownloadResumen = async () => {
         method: 'PATCH',
         body: '{}',
       })
-  
+
       // Actualizar estado local
       setPersonas(prev => prev.filter(p => p.id !== userToDelete.id))
       if (personas.length === 1 && page > 1) setPage(p => p - 1)
@@ -352,7 +352,7 @@ const handleDownloadResumen = async () => {
         <div className="flex items-center text-sm text-gray-600 mb-2">
           <button
             onClick={() => router.push('/dashboard/familias')}
-            className="hover:text-[#7d4f2b] transition-colors"
+            className="text-[#7d4f2b] hover:text-[#6c4326] transition-colors"
           >
             Familias
           </button>
@@ -629,9 +629,9 @@ const handleDownloadResumen = async () => {
           </table>
         </div>
 
-      {/* Paginación */}
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4">
-        <div className="text-sm text-gray-600">Página {page} de {totalPages}</div>
+        {/* Paginación */}
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4">
+          <div className="text-sm text-gray-600">Página {page} de {totalPages}</div>
           <div className="flex gap-2">
             <button
               disabled={page <= 1}

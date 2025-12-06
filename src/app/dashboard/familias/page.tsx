@@ -9,11 +9,8 @@ import {
   Plus,
   X,
   User,
-  FileText,
   Building,
   UsersRound,
-  CircleCheck,
-  CircleX,
   Eye,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
@@ -51,6 +48,7 @@ interface FamiliaApi {
   id: number
   representante_id: string
   estado: 'ACTIVA' | 'INACTIVA'
+  fechaCreacion: string
   representante: Representante
 }
 
@@ -68,7 +66,7 @@ interface Familia {
   cedula: string
   parcialidad: string
   miembros: number
-  estado: 'activa' | 'inactiva'
+  fechaCreacion: string
 }
 
 interface UploadError {
@@ -102,7 +100,6 @@ export default function FamiliaPage() {
   const [busqueda, setBusqueda] = useState('')
   const [filtroParcialidad, setFiltroParcialidad] = useState('')
   const [filtroMiembros, setFiltroMiembros] = useState('')
-  const [filtroEstado, setFiltroEstado] = useState('')
 
   const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
@@ -130,10 +127,6 @@ export default function FamiliaPage() {
       })
       if (busqueda) params.append('query', busqueda)
       if (filtroParcialidad) params.append('parcialidad_id', filtroParcialidad)
-      // NOTA: 'miembros' y 'estado' probablemente no estén soportados por el backend tal como están.
-      // Si no están, debes filtrar en el frontend o usar endpoints específicos si existen.
-      // Por ahora, los pasamos por si acaso.
-      if (filtroEstado) params.append('estado', filtroEstado.toUpperCase())
       if (filtroMiembros) params.append('rango_miembros', filtroMiembros)
 
       const data = await apiFetch<FamiliaApiResponse>(`/familias/search?${params.toString()}`)
@@ -169,7 +162,7 @@ export default function FamiliaPage() {
               cedula,
               parcialidad: parcialidadNombre,
               miembros: conteoMiembros,
-              estado: apiFam.estado.toLowerCase() as 'activa' | 'inactiva',
+              fechaCreacion: apiFam.fechaCreacion,
             }
         })
       )
@@ -186,7 +179,7 @@ export default function FamiliaPage() {
   useEffect(() => {
     fetchFamilias()
     cargarStats()
-  }, [page, busqueda, filtroParcialidad, filtroEstado, filtroMiembros])
+  }, [page, busqueda, filtroParcialidad, filtroMiembros])
 
   // === ACCIONES ===
   const handleDelete = (familia: Familia) => setFamiliaSeleccionada(familia)
@@ -351,20 +344,6 @@ export default function FamiliaPage() {
                 ]}
                 texttooltip="Filtra por número de miembros en la familia."
               />
-
-              <AnimatedFilterField
-                as="select"
-                icon={FileText}
-                label="Estado"
-                value={filtroEstado}
-                onChange={setFiltroEstado}
-                options={[
-                  { value: '', label: 'Todos los estados' },
-                  { value: 'activa', label: 'Activa' },
-                  { value: 'inactiva', label: 'Inactiva' },
-                ]}
-                texttooltip="Filtra por estado de la familia."
-              />
             </div>
             <div>
           </div>
@@ -401,7 +380,7 @@ export default function FamiliaPage() {
                 <th className="px-5 py-3 text-left text-sm font-medium">Cédula</th>
                 <th className="px-5 py-3 text-left text-sm font-medium">Parcialidad</th>
                 <th className="px-5 py-3 text-left text-sm font-medium">Miembros</th>
-                <th className="px-5 py-3 text-left text-sm font-medium">Estado</th>
+                <th className="px-5 py-3 text-left text-sm font-medium">Fecha de Creación</th>
                 <th className="px-5 py-3 text-center text-sm font-medium">Acciones</th>
               </tr>
             </thead>
@@ -429,17 +408,23 @@ export default function FamiliaPage() {
                     <td className="px-5 py-4 text-gray-800">{f.parcialidad}</td>
                     <td className="px-5 py-4 text-gray-800">{f.miembros} persona{f.miembros !== 1 ? 's' : ''}</td>
                     <td className="px-5 py-4">
-                      {f.estado === 'activa' ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                          <CircleCheck size={12} />
-                          Activa
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                          <CircleX size={12} />
-                          Inactiva
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium text-gray-800">
+                            {new Date(f.fechaCreacion).toLocaleDateString('es-ES', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric'
+                            }).replace(/\//g, '-')}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {new Date(f.fechaCreacion).toLocaleTimeString('es-ES', {
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
+                        </div>
+                      </div>
                     </td>
                     <td className="px-5 py-4 text-center">
                       <button
