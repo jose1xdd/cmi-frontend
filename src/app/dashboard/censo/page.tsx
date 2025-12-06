@@ -9,7 +9,6 @@ import {
   Edit3,
   Download,
   Trash2,
-  Eye,
   AlertCircle,
   Check,
   Plus,
@@ -29,11 +28,11 @@ interface CensoProceso {
   id: number
   anio: number
   estado: 'PROCESANDO' | 'COMPLETADO'
-  fechaInicio: string // ISO 8601
+  fechaInicio: string
   esPrueba: boolean
   generadoPor: string
   mensaje: string
-  fechaFin?: string // Puede no estar si está procesando
+  fechaFin?: string
 }
 
 interface CensosResponse {
@@ -43,30 +42,20 @@ interface CensosResponse {
   items: CensoProceso[]
 }
 
-interface CensoStatsResponse {
-  // Asumiendo que tienes un endpoint para estadísticas, si no, puedes calcularlas aquí
-  // Por ahora, no hay endpoint de stats, así que lo manejaremos localmente
-}
-
 export default function CensosPage() {
-  // Estados
   const [censos, setCensos] = useState<CensoProceso[]>([])
   const [loading, setLoading] = useState(true)
   const [mensajeError, setMensajeError] = useState<string | null>(null)
 
-  // Filtros
   const [anioFiltro, setAnioFiltro] = useState('')
   const [estadoFiltro, setEstadoFiltro] = useState('')
 
-  // Paginación
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
 
-  // Estados para modales
   const [showCrearModal, setShowCrearModal] = useState(false)
   const [tipoCrearModal, setTipoCrearModal] = useState<'borrador' | 'definitivo' | null>(null)
 
-  // === Cargar censos ===
   const fetchCensos = async () => {
     setLoading(true)
     setMensajeError(null)
@@ -76,7 +65,7 @@ export default function CensosPage() {
         page_size: '10',
       })
       if (anioFiltro) params.append('anio', anioFiltro)
-      if (estadoFiltro) params.append('estado', estadoFiltro.toUpperCase()) // El backend espera 'PROCESANDO' o 'COMPLETADO'
+      if (estadoFiltro) params.append('estado', estadoFiltro.toUpperCase())
 
       const data = await apiFetch<CensosResponse>(`/censo/procesos?${params.toString()}`)
       setCensos(data.items)
@@ -89,28 +78,15 @@ export default function CensosPage() {
     }
   }
 
-  // Cargar datos iniciales
   useEffect(() => {
     fetchCensos()
-  }, [page, anioFiltro, estadoFiltro]) // <-- Agregar filtros a las dependencias
+  }, [page, anioFiltro, estadoFiltro])
 
-  // === Estadísticas (calcular localmente a partir de los datos cargados) ===
   const totalBorradores = censos.filter(c => c.esPrueba).length
   const totalDefinitivos = censos.filter(c => !c.esPrueba).length
-  // Suponiendo que el total de registros se puede inferir del mensaje o de otro endpoint
-  // Por ahora, pondremos un placeholder o dejamos pendiente si no está en la respuesta
-  const totalRegistros = 0 // <-- Pendiente: calcular si se puede o hacer otra llamada
-
-  // === Acciones ===
-  const handleView = (c: CensoProceso) => {
-    // Lógica para ver detalles (quizás abrir un modal con más info)
-    console.log('Ver detalles de censo', c)
-  }
 
   const handleDownload = async (c: CensoProceso) => {
     try {
-      // Usar apiFetch para descargar el archivo Excel
-      // Este endpoint probablemente devuelve un blob
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://backend-quillacinga.ddns.net/cmi-apigateway'}/censo/exportar/${c.id}`,
         {
@@ -120,9 +96,7 @@ export default function CensosPage() {
         }
       )
 
-      if (!response.ok) {
-        throw new Error(`Error al descargar censo: ${response.status}`)
-      }
+      if (!response.ok) throw new Error(`Error al descargar censo: ${response.status}`)
 
       const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
@@ -139,7 +113,6 @@ export default function CensosPage() {
     }
   }
 
-  // === Funciones para modales ===
   const openCrearBorradorModal = () => {
     setTipoCrearModal('borrador')
     setShowCrearModal(true)
@@ -157,10 +130,9 @@ export default function CensosPage() {
 
   const handleCrearSuccess = () => {
     closeCrearModal()
-    fetchCensos() // Recarga la lista
+    fetchCensos()
   }
 
-  // === Resetear filtros ===
   const handleClearFilters = () => {
     setAnioFiltro('')
     setEstadoFiltro('')
@@ -169,16 +141,13 @@ export default function CensosPage() {
 
   return (
     <div className="space-y-6">
-      {/* Encabezado con botones */}
       <div className="bg-white p-6 rounded-xl shadow-md">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-semibold text-[#333] flex items-center gap-2">
-              <Users size={25} className="text-[#7d4f2b]" />
-              Gestión de Censos
-              <Tooltip text="Aquí puedes ver, crear y gestionar los procesos de censos comunitarios." />
-            </h1>
-          </div>
+          <h1 className="text-2xl sm:text-3xl font-semibold text-[#333] flex items-center gap-2">
+            <Users size={25} className="text-[#7d4f2b]" />
+            Gestión de Censos
+            <Tooltip text="Aquí puedes ver, crear y gestionar los procesos de censos comunitarios." />
+          </h1>
 
           <div className="flex flex-wrap gap-2">
             <button
@@ -200,7 +169,8 @@ export default function CensosPage() {
             </button>
           </div>
         </div>
-                <div className="flex flex-col sm:flex-row gap-4">
+
+        <div className="flex flex-col sm:flex-row gap-4">
           <AnimatedFilterField
             icon={Calendar}
             label="Filtrar por año"
@@ -226,32 +196,12 @@ export default function CensosPage() {
         </div>
       </div>
 
-      {/* Estadísticas */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <StatCard
-          label="Censos Borradores"
-          value={totalBorradores}
-          icon={<FileText className="w-5 h-5 sm:w-6 sm:h-6" />}
-          bg="bg-blue-50"
-          color="text-blue-700"
-        />
-        <StatCard
-          label="Censos Definitivos"
-          value={totalDefinitivos}
-          icon={<FileText className="w-5 h-5 sm:w-6 sm:h-6" />}
-          bg="bg-green-50"
-          color="text-green-700"
-        />
-        <StatCard
-          label="Total de Procesos"
-          value={censos.length}
-          icon={<Users className="w-5 h-5 sm:w-6 sm:h-6" />}
-          bg="bg-[#f8f5f0]"
-          color="text-[#7d4f2b]"
-        />
+        <StatCard label="Censos Borradores" value={totalBorradores} icon={<FileText className="w-5 h-5 sm:w-6 sm:h-6" />} bg="bg-blue-50" color="text-blue-700" />
+        <StatCard label="Censos Definitivos" value={totalDefinitivos} icon={<FileText className="w-5 h-5 sm:w-6 sm:h-6" />} bg="bg-green-50" color="text-green-700" />
+        <StatCard label="Total de Procesos" value={censos.length} icon={<Users className="w-5 h-5 sm:w-6 sm:h-6" />} bg="bg-[#f8f5f0]" color="text-[#7d4f2b]" />
       </div>
 
-      {/* Tabla */}
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto max-h-[70vh]">
           <table className="min-w-full">
@@ -268,49 +218,24 @@ export default function CensosPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-6 text-gray-500">
-                    Cargando censos...
-                  </td>
+                  <td colSpan={6} className="text-center py-6 text-gray-500">Cargando censos...</td>
                 </tr>
               ) : censos.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-6 text-gray-500">
-                    No se encontraron procesos de censo
-                  </td>
+                  <td colSpan={6} className="text-center py-6 text-gray-500">No se encontraron procesos</td>
                 </tr>
               ) : (
                 censos.map((c, index) => (
                   <tr key={c.id} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
                     <td className="px-5 py-3 font-medium text-gray-800">{c.anio}</td>
-                    <td className="px-5 py-3 text-gray-800">
-                      {new Date(c.fechaInicio).toLocaleDateString('es-ES')}
-                    </td>
+                    <td className="px-5 py-3 text-gray-800">{new Date(c.fechaInicio).toLocaleDateString('es-ES')}</td>
                     <td className="px-5 py-3 text-center">
-                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        c.estado === 'COMPLETADO'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {c.estado === 'COMPLETADO' ? 'Completado' : 'Procesando'}
-                      </span>
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${c.estado === 'COMPLETADO' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>{c.estado === 'COMPLETADO' ? 'Completado' : 'Procesando'}</span>
                     </td>
-                    <td className="px-5 py-3 text-center">
-                      {c.esPrueba ? (
-                        <span className="text-orange-600 font-medium">Sí</span>
-                      ) : (
-                        <span className="text-green-600 font-medium">No</span>
-                      )}
-                    </td>
+                    <td className="px-5 py-3 text-center">{c.esPrueba ? <span className="text-orange-600 font-medium">Sí</span> : <span className="text-green-600 font-medium">No</span>}</td>
                     <td className="px-5 py-3 text-gray-800">{c.generadoPor}</td>
                     <td className="px-5 py-3 text-center">
                       <div className="flex justify-center gap-2">
-                        <button
-                          onClick={() => handleView(c)}
-                          className="text-[#7d4f2b] hover:text-blue-600 transition-colors p-1"
-                          title="Ver detalles"
-                        >
-                          <Eye size={16} />
-                        </button>
                         <button
                           onClick={() => handleDownload(c)}
                           className="text-[#7d4f2b] hover:text-green-600 transition-colors p-1"
@@ -328,47 +253,25 @@ export default function CensosPage() {
         </div>
       </div>
 
-      {/* Paginación */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-2">
         <div className="text-sm text-gray-600">Página {page} de {totalPages}</div>
         <div className="flex gap-2">
-          <button
-            disabled={page <= 1}
-            onClick={() => setPage((p) => p - 1)}
-            className="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300 disabled:opacity-50"
-          >
-            Anterior
-          </button>
-          <button
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
-            className="px-4 py-2 rounded-lg bg-[#7d4f2b] text-white hover:bg-[#5e3c1f] disabled:opacity-50"
-          >
-            Siguiente
-          </button>
+          <button disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300 disabled:opacity-50">Anterior</button>
+          <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)} className="px-4 py-2 rounded-lg bg-[#7d4f2b] text-white hover:bg-[#5e3c1f] disabled:opacity-50">Siguiente</button>
         </div>
       </div>
 
-      {/* Mensaje de error global */}
       {mensajeError && (
         <div className="p-4 bg-red-50 text-red-700 rounded-lg text-sm border border-red-200">
           {mensajeError}
-          <button
-            onClick={() => setMensajeError(null)}
-            className="float-right text-red-500 hover:text-red-700"
-          >
+          <button onClick={() => setMensajeError(null)} className="float-right text-red-500 hover:text-red-700">
             <X size={16} />
           </button>
         </div>
       )}
 
-      {/* Modal: Crear Censo */}
       {showCrearModal && tipoCrearModal && (
-        <CrearCensoModal
-          onClose={closeCrearModal}
-          onSuccess={handleCrearSuccess}
-          tipoCrearModal={tipoCrearModal}
-        />
+        <CrearCensoModal onClose={closeCrearModal} onSuccess={handleCrearSuccess} tipoCrearModal={tipoCrearModal} />
       )}
     </div>
   )
