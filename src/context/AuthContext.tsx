@@ -1,5 +1,6 @@
 'use client'
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
 
 interface AuthContextType {
   token: string | null
@@ -10,13 +11,50 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+const PUBLIC_ROUTES = ['/']
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null)
+  const router = useRouter()
+  const pathname = usePathname()
 
+  // Función para validar expiración del JWT
+  const isTokenExpired = (jwt: string): boolean => {
+    try {
+      const payload = JSON.parse(atob(jwt.split('.')[1]))
+      const exp = payload.exp * 1000
+      return Date.now() > exp
+    } catch (err) {
+      console.error('Error verificando token:', err)
+      return true
+    }
+  }
+
+  // Cargar token desde localStorage
   useEffect(() => {
     const savedToken = localStorage.getItem('token')
-    if (savedToken) setToken(savedToken)
-  }, [])
+
+    // Si no hay token y la ruta NO es pública → redirigir al login
+    if (!savedToken) {
+      if (!PUBLIC_ROUTES.includes(pathname)) {
+        router.push('/login')
+      }
+      return
+    }
+
+    // Si el token existe pero está vencido → logout + redirigir
+    if (isTokenExpired(savedToken)) {
+      localStorage.removeItem('token')
+      setToken(null)
+
+      if (!PUBLIC_ROUTES.includes(pathname)) {
+        router.push('/login')
+      }
+      return
+    }
+
+    setToken(savedToken)
+  }, [pathname])
 
   const login = (newToken: string) => {
     localStorage.setItem('token', newToken)
@@ -26,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     localStorage.removeItem('token')
     setToken(null)
+    router.push('/login')
   }
 
   return (
