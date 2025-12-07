@@ -388,7 +388,7 @@ export default function DetalleFamiliaPage() {
           </div>
           <div className="flex flex-col">
             <span className="text-xs text-gray-500 font-medium">Total Miembros</span>
-            <span className="font-medium text-gray-800">{familia.miembros} personas</span>
+            <span className="font-medium text-gray-800">{estadisticas.total} personas</span>
           </div>
           <div className="flex flex-col">
             <span className="text-xs text-gray-500 font-medium">Estado</span>
