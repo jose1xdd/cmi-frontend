@@ -42,8 +42,26 @@ export async function apiFetch<T = unknown>(
   })
 
   if (!res.ok) {
-    const errorText = await res.text()
-    throw new Error(errorText || 'Error en la petición')
+    let errorMessage = 'Error en la petición'
+
+    try {
+      const errorText = await res.text()
+
+      // Intentar parsear como JSON
+      try {
+        const errorJson = JSON.parse(errorText)
+        // Extraer el mensaje del backend (puede venir en diferentes formatos)
+        errorMessage = errorJson.mensaje || errorJson.message || errorJson.detail || errorText
+      } catch {
+        // Si no es JSON, usar el texto directamente
+        errorMessage = errorText || errorMessage
+      }
+    } catch {
+      // Si falla la lectura del texto, usar mensaje genérico
+      errorMessage = `Error ${res.status}: ${res.statusText}`
+    }
+
+    throw new Error(errorMessage)
   }
 
   if (options.responseType === 'blob') {

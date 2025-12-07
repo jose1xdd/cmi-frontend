@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { Plus, FileText } from 'lucide-react'
 import { apiFetch } from '@/lib/api'
+import { useToast } from '@/context/ToastContext'
 import PublicacionesCarrusel from './components/PublicacionesCarrusel'
 import FormularioPublicacionModal from './nuevo/page'
 
@@ -28,6 +29,7 @@ interface PublicacionesResponse {
 
 export default function IndexPublicacionesPage() {
   const router = useRouter()
+  const toast = useToast()
   const [publicaciones, setPublicaciones] = useState<Publicacion[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -48,8 +50,9 @@ export default function IndexPublicacionesPage() {
       setPublicaciones(data.items)
       setTotalPages(data.total_pages)
       setCurrentIndex(0) // Reiniciar al cambiar página
-    } catch (error) {
-      console.error('Error cargando publicaciones', error)
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error cargando publicaciones'
+      toast.error(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -97,14 +100,15 @@ export default function IndexPublicacionesPage() {
         setPublicaciones(nuevas)
         setIdAEliminar(null)
         setShowSuccessModal(true)
+        toast.success('Publicación eliminada exitosamente')
 
         // Ajustar índice si se elimina la publicación actual
         if (nuevas.length > 0) {
           setCurrentIndex(Math.min(currentIndex, nuevas.length - 1))
         }
-      } catch (err) {
-        console.error('Error eliminando publicación', err)
-        alert('No se pudo eliminar la publicación')
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'No se pudo eliminar la publicación'
+        toast.error(errorMessage)
       }
     }
   }
@@ -131,6 +135,7 @@ export default function IndexPublicacionesPage() {
   const handleFormSuccess = () => {
     cerrarModalForm()
     fetchPublicaciones() // Recarga la lista
+    toast.success('Publicación guardada exitosamente')
   }
 
   return (

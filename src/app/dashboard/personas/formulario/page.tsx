@@ -82,10 +82,10 @@ export default function FormularioPersonaPage({
     sexo: '',
     direccion: '',
     telefono: '',
-    escolaridad: '',
+    escolaridad: 'NI', // Por defecto "Ninguna"
     profesion: '',
     parentesco: '',
-    familia: idFamilia?.toString() || '', 
+    familia: idFamilia?.toString() || '',
     parcialidad: '',
   })
 
@@ -159,6 +159,45 @@ export default function FormularioPersonaPage({
     for (const field of requiredFields) {
       if (!data[field as keyof typeof data]?.trim()) {
         setMensajeModal('Por favor complete todos los campos obligatorios.')
+        return
+      }
+    }
+
+    // Validar formato de identificación
+    const identificacion = data.identificacion.trim()
+    if (!/^\d+$/.test(identificacion)) {
+      setMensajeModal('La identificación debe contener solo números.')
+      return
+    }
+
+    // Validar longitud según tipo de documento
+    let minLength = 6
+    let maxLength = 12
+
+    if (data.tipoDocumento === 'CC') {
+      minLength = 6
+      maxLength = 10
+    } else if (data.tipoDocumento === 'TI') {
+      minLength = 10
+      maxLength = 11
+    } else if (data.tipoDocumento === 'RC') {
+      minLength = 10
+      maxLength = 11
+    }
+
+    if (identificacion.length < minLength || identificacion.length > maxLength) {
+      setMensajeModal(`La identificación debe tener entre ${minLength} y ${maxLength} dígitos para ${data.tipoDocumento}.`)
+      return
+    }
+
+    // Validar que la fecha de nacimiento no sea futura
+    if (data.nacimiento) {
+      const fechaNacimiento = new Date(data.nacimiento)
+      const hoy = new Date()
+      hoy.setHours(0, 0, 0, 0) // Resetear horas para comparar solo fechas
+
+      if (fechaNacimiento > hoy) {
+        setMensajeModal('La fecha de nacimiento no puede ser mayor a la fecha actual.')
         return
       }
     }
@@ -258,16 +297,29 @@ export default function FormularioPersonaPage({
             <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
               <User size={16} className="text-[#7d4f2b]" />
               Identificación *
-              <Tooltip text="Número único de identificación. En edición no puede cambiarse." />
+              <Tooltip text="Número único de identificación. Solo números, mínimo 6 dígitos." />
             </label>
             <input
+              type="text"
+              inputMode="numeric"
               value={data.identificacion}
-              onChange={(e) => handleInputChange('identificacion', e.target.value)}
+              onChange={(e) => {
+                // Solo permitir números
+                const value = e.target.value.replace(/\D/g, '')
+                handleInputChange('identificacion', value)
+              }}
               disabled={esEdicion}
               className={`w-full border border-gray-300 rounded-lg px-4 py-2.5 text-gray-800 focus:ring-2 focus:ring-[#7d4f2b] focus:border-transparent ${
                 esEdicion ? 'bg-gray-100 cursor-not-allowed' : ''
               }`}
+              placeholder="Ej: 1234567890"
+              maxLength={12}
             />
+            {!esEdicion && (
+              <p className="text-gray-500 text-xs mt-1">
+                Solo números, sin puntos ni espacios
+              </p>
+            )}
           </div>
 
           {/* Nombre */}
@@ -303,12 +355,13 @@ export default function FormularioPersonaPage({
             <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
               <Calendar size={16} className="text-[#7d4f2b]" />
               Fecha nacimiento *
-              <Tooltip text="Selecciona la fecha de nacimiento de la persona." />
+              <Tooltip text="Selecciona la fecha de nacimiento de la persona. No puede ser mayor a hoy." />
             </label>
             <input
               type="date"
               value={data.nacimiento}
               onChange={(e) => handleInputChange('nacimiento', e.target.value)}
+              max={new Date().toISOString().split('T')[0]}
               className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-gray-800 focus:ring-2 focus:ring-[#7d4f2b] focus:border-transparent"
             />
           </div>
@@ -367,7 +420,7 @@ export default function FormularioPersonaPage({
             <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
               <GraduationCap size={16} className="text-[#7d4f2b]" />
               Escolaridad *
-              <Tooltip text="Nivel de estudios alcanzado por la persona." />
+              <Tooltip text="Nivel de estudios alcanzado por la persona. Por defecto es 'Ninguna'." />
             </label>
             <select
               value={data.escolaridad}

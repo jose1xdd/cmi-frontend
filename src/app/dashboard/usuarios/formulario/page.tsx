@@ -98,6 +98,19 @@ export default function FormularioUsuarioSistemaPage({
       return
     }
 
+    // Validar personaId solo en creación
+    if (!esEdicion && data.personaId) {
+      const personaId = data.personaId.trim()
+      if (!/^\d+$/.test(personaId)) {
+        setMensajeModal('El ID de persona debe contener solo números.')
+        return
+      }
+      if (personaId.length < 6 || personaId.length > 12) {
+        setMensajeModal('El ID de persona debe tener entre 6 y 12 dígitos.')
+        return
+      }
+    }
+
     setLoading(true)
     try {
       let response: ApiResponse
@@ -166,15 +179,25 @@ export default function FormularioUsuarioSistemaPage({
           </label>
           <input
             type="text"
-            inputMode="numeric" // Mejor UX en móviles: teclado numérico
+            inputMode="numeric"
             value={data.personaId}
-            onChange={(e) => handleInputChange('personaId', e.target.value)}
+            onChange={(e) => {
+              // Solo permitir números
+              const value = e.target.value.replace(/\D/g, '')
+              handleInputChange('personaId', value)
+            }}
             disabled={esEdicion}
             className={`w-full border border-gray-300 rounded-lg px-4 py-2.5 text-gray-800 focus:ring-2 focus:ring-[#7d4f2b] focus:border-transparent ${
               esEdicion ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : ''
             }`}
             placeholder={esEdicion ? '' : 'Ej: 1002319256'}
+            maxLength={12}
           />
+          {!esEdicion && (
+            <p className="text-gray-500 text-xs mt-1">
+              Solo números, mínimo 6 dígitos
+            </p>
+          )}
         </div>
 
         {/* Rol */}

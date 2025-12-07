@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { apiFetch } from '@/lib/api'
+import { useToast } from '@/context/ToastContext'
 import {
   Users,
   UsersRound,
@@ -75,18 +76,17 @@ interface DemografiaData {
 }
 
 export default function DashboardPage() {
+  const toast = useToast()
   const [stats, setStats] = useState<StatsData | null>(null)
   const [parcialidades, setParcialidades] = useState<ParcialidadData[]>([])
   const [demografia, setDemografia] = useState<DemografiaData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [usuarios, setUsuarios] = useState<number>(0)
 
   // === Cargar datos del dashboard desde el nuevo endpoint ===
   const fetchDashboardData = async () => {
     try {
       setLoading(true)
-      setError(null)
 
       const data = await apiFetch<DashboardDataAPI>('/reportes/reportes/resumen')
 
@@ -126,9 +126,9 @@ export default function DashboardPage() {
       setStats(statsMapeadas)
       setParcialidades(parcialidadesMapeadas)
       setDemografia(demografiaMapeada)
-    } catch (err: any) {
-      console.error('Error al cargar datos del dashboard', err)
-      setError(err.message || 'No se pudieron cargar los datos del dashboard.')
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'No se pudieron cargar los datos del dashboard'
+      toast.error(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -142,22 +142,6 @@ export default function DashboardPage() {
     return (
       <div className="flex justify-center items-center min-h-[60vh]">
         <p className="text-gray-600">Cargando dashboard...</p>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="flex justify-center items-center min-h-[60vh]">
-        <div className="bg-red-50 text-red-700 p-6 rounded-lg border border-red-200">
-          <p>{error}</p>
-          <button
-            onClick={fetchDashboardData}
-            className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-          >
-            Reintentar
-          </button>
-        </div>
       </div>
     )
   }

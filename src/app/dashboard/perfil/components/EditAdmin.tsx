@@ -226,6 +226,7 @@ export default function EditarPerfilAdminModal({
                 type="date"
                 value={form.nacimiento}
                 onChange={(e) => handleChange('nacimiento', e.target.value)}
+                max={new Date().toISOString().split('T')[0]}
                 className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-gray-800 focus:ring-2 focus:ring-[#7d4f2b] focus:border-transparent"
               />
             </div>

@@ -21,6 +21,7 @@ import { StatCard } from '@/components/StatCard'
 import { AnimatedFilterField } from '@/components/AnimatedFilterField'
 import { Tooltip } from '@/components/Tooltip'
 import { apiFetch } from '@/lib/api'
+import { useToast } from '@/context/ToastContext'
 import CrearCensoModal from './modal/CrearCensoModal'
 
 // === INTERFACES ===
@@ -43,9 +44,9 @@ interface CensosResponse {
 }
 
 export default function CensosPage() {
+  const toast = useToast()
   const [censos, setCensos] = useState<CensoProceso[]>([])
   const [loading, setLoading] = useState(true)
-  const [mensajeError, setMensajeError] = useState<string | null>(null)
 
   const [anioFiltro, setAnioFiltro] = useState('')
   const [estadoFiltro, setEstadoFiltro] = useState('')
@@ -58,7 +59,6 @@ export default function CensosPage() {
 
   const fetchCensos = async () => {
     setLoading(true)
-    setMensajeError(null)
     try {
       const params = new URLSearchParams({
         page: page.toString(),
@@ -70,9 +70,9 @@ export default function CensosPage() {
       const data = await apiFetch<CensosResponse>(`/censo/procesos?${params.toString()}`)
       setCensos(data.items)
       setTotalPages(data.total_pages || 1)
-    } catch (err: any) {
-      console.error('Error al cargar censos', err)
-      setMensajeError(err.message || 'No se pudieron cargar los censos.')
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'No se pudieron cargar los censos'
+      toast.error(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -107,9 +107,11 @@ export default function CensosPage() {
       link.click()
       link.remove()
       window.URL.revokeObjectURL(url)
-    } catch (err: any) {
-      console.error('Error al descargar censo', err)
-      setMensajeError(err.message || 'No se pudo descargar el archivo.')
+
+      toast.success('Censo descargado exitosamente')
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'No se pudo descargar el archivo'
+      toast.error(errorMessage)
     }
   }
 
@@ -131,6 +133,7 @@ export default function CensosPage() {
   const handleCrearSuccess = () => {
     closeCrearModal()
     fetchCensos()
+    toast.success('Censo creado exitosamente')
   }
 
   const handleClearFilters = () => {
@@ -260,15 +263,6 @@ export default function CensosPage() {
           <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)} className="px-4 py-2 rounded-lg bg-[#7d4f2b] text-white hover:bg-[#5e3c1f] disabled:opacity-50">Siguiente</button>
         </div>
       </div>
-
-      {mensajeError && (
-        <div className="p-4 bg-red-50 text-red-700 rounded-lg text-sm border border-red-200">
-          {mensajeError}
-          <button onClick={() => setMensajeError(null)} className="float-right text-red-500 hover:text-red-700">
-            <X size={16} />
-          </button>
-        </div>
-      )}
 
       {showCrearModal && tipoCrearModal && (
         <CrearCensoModal onClose={closeCrearModal} onSuccess={handleCrearSuccess} tipoCrearModal={tipoCrearModal} />

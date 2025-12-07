@@ -33,8 +33,9 @@ export default function Home() {
         `/index/index?page=1&page_size=10`
       )
       setPublicaciones(data.items)
-    } catch (error) {
-      console.error('Error cargando publicaciones', error)
+    } catch (err) {
+      // Silenciosamente manejar el error en la página pública
+      console.error('Error cargando publicaciones:', err instanceof Error ? err.message : 'Error desconocido')
     } finally {
       setLoading(false)
     }
@@ -200,7 +201,7 @@ function PublicacionFoto({
         const blob = await res.blob()
         setSrc(URL.createObjectURL(blob))
       } catch (err) {
-        console.error('Error cargando foto', err)
+        console.error('Error cargando foto:', err instanceof Error ? err.message : 'Error desconocido')
       }
     }
 

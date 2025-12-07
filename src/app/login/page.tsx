@@ -5,18 +5,19 @@ import { Eye, EyeOff, X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
 import { useAuth } from '@/context/AuthContext'
+import { useToast } from '@/context/ToastContext'
 import { jwtDecode } from 'jwt-decode'
 import type { LoginResponse, JwtPayload } from '@/types/auth'
 
 export default function LoginPage() {
   const { login } = useAuth()
   const router = useRouter()
+  const toast = useToast()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   // 🔑 recuperación
   const [showRecoveryModal, setShowRecoveryModal] = useState(false)
@@ -24,12 +25,10 @@ export default function LoginPage() {
   const [recoveryEmail, setRecoveryEmail] = useState('')
   const [recoveryCode, setRecoveryCode] = useState('')
   const [recoveryLoading, setRecoveryLoading] = useState(false)
-  const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    setError(null)
 
     try {
       const data = await apiFetch<LoginResponse>('/login', {
@@ -45,17 +44,22 @@ export default function LoginPage() {
       const payload = jwtDecode<JwtPayload>(data.jwt)
       localStorage.setItem('tipoUsuario', payload.role)
 
+      toast.success('Inicio de sesión exitoso')
+
       // Redirigir al dashboard principal en lugar del perfil
       router.push('/dashboard/dashboard')
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Error en el inicio de sesión')
+      toast.error(err instanceof Error ? err.message : 'Error en el inicio de sesión')
     } finally {
       setLoading(false)
     }
   }
 
   const handleRecovery = async () => {
-    if (!recoveryEmail) return
+    if (!recoveryEmail) {
+      toast.warning('Por favor ingresa tu correo electrónico')
+      return
+    }
     setRecoveryLoading(true)
     try {
       await apiFetch('/password/recovery', {
@@ -64,15 +68,19 @@ export default function LoginPage() {
       })
       setShowRecoveryModal(false)
       setShowCodeModal(true)
-    } catch {
-      alert('Error al enviar el correo de recuperación')
+      toast.success('Código de recuperación enviado a tu correo')
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Error al enviar el correo de recuperación')
     } finally {
       setRecoveryLoading(false)
     }
   }
 
   const handleReset = async () => {
-    if (!recoveryEmail || !recoveryCode) return
+    if (!recoveryEmail || !recoveryCode) {
+      toast.warning('Por favor completa todos los campos')
+      return
+    }
     setRecoveryLoading(true)
     try {
       await apiFetch('/password/reset', {
@@ -80,9 +88,12 @@ export default function LoginPage() {
         body: JSON.stringify({ email: recoveryEmail, code: recoveryCode }),
       })
       setShowCodeModal(false)
-      setSuccessMessage('La contraseña fue restablecida correctamente. Revisa tu correo.')
-    } catch {
-      alert('Error al validar el código')
+      toast.success('Contraseña restablecida correctamente. Revisa tu correo.')
+      // Limpiar campos
+      setRecoveryEmail('')
+      setRecoveryCode('')
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Error al validar el código')
     } finally {
       setRecoveryLoading(false)
     }
@@ -131,8 +142,6 @@ export default function LoginPage() {
                 </button>
               </div>
             </div>
-
-            {error && <p className="text-red-500 text-sm">{error}</p>}
 
             <button
               type="submit"
@@ -207,23 +216,6 @@ export default function LoginPage() {
         </div>
       )}
 
-      {/* Modal éxito */}
-      {successMessage && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="bg-white rounded-lg shadow-md p-6 max-w-sm w-full text-center">
-            <p className="mb-4">{successMessage}</p>
-            <button
-              onClick={() => {
-                setSuccessMessage(null)
-                router.push('/login')
-              }}
-              className="bg-[#7d4f2b] text-white px-6 py-2 rounded hover:bg-[#5e3c1f]"
-            >
-              Aceptar
-            </button>
-          </div>
-        </div>
-      )}
     </main>
   )
 }

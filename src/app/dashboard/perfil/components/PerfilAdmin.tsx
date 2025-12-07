@@ -198,6 +198,7 @@ export default function PerfilAdmin({ data }: PerfilAdminProps) {
               name="nacimiento"
               value={form.nacimiento}
               onChange={handleChange}
+              max={new Date().toISOString().split('T')[0]}
               className="w-full border border-[#7d4f2b] rounded px-3 py-2"
             />
           </div>
@@ -254,7 +255,7 @@ export default function PerfilAdmin({ data }: PerfilAdminProps) {
 
           {/* Escolaridad */}
           <div>
-            <label className="block text-sm text-[#7d4f2b] mb-1 flex items-center">
+            <label className="flex items-center text-sm text-[#7d4f2b] mb-1">
               Escolaridad
               <Tooltip text="Seleccione el nivel educativo alcanzado" />
             </label>
@@ -288,7 +289,7 @@ export default function PerfilAdmin({ data }: PerfilAdminProps) {
 
           {/* Parentesco */}
           <div>
-            <label className="block text-sm text-[#7d4f2b] mb-1 flex items-center">
+            <label className="flex items-center text-sm text-[#7d4f2b] mb-1">
               Parentesco
               <Tooltip text="Seleccione el parentesco que tiene en su familia, Ejemplo: Eres el Padre de familia, Hijo" />
             </label>

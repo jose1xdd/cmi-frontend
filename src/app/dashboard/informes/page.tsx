@@ -2,10 +2,12 @@
 
 import { useState } from 'react'
 import { apiFetch } from '@/lib/api'
+import { useToast } from '@/context/ToastContext'
 import { FileText, Download, BarChart3 } from 'lucide-react'
 import { Tooltip } from '@/components/Tooltip'
 
 export default function InformesPage() {
+  const toast = useToast()
   const [loading, setLoading] = useState(false)
 
   const handleDescargar = async (e: React.FormEvent) => {
@@ -25,9 +27,11 @@ export default function InformesPage() {
       link.click()
       link.remove()
       window.URL.revokeObjectURL(url)
-    } catch (error) {
-      console.error('Error al descargar informe:', error)
-      alert('No se pudo descargar el informe')
+
+      toast.success('Informe descargado exitosamente')
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'No se pudo descargar el informe'
+      toast.error(errorMessage)
     } finally {
       setLoading(false)
     }
