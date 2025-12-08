@@ -40,7 +40,7 @@ export default function LoginPage() {
         throw new Error('Credenciales inválidas')
       }
 
-      login(data.jwt)
+      login(data.jwt, data.refresh_token)
       const payload = jwtDecode<JwtPayload>(data.jwt)
       localStorage.setItem('tipoUsuario', payload.role)
 

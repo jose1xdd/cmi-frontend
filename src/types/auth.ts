@@ -6,6 +6,7 @@ export interface LoginRequest {
 export type LoginResponse = {
   estado: string
   jwt: string
+  refresh_token: string
 }
 
 export interface JwtPayload {
