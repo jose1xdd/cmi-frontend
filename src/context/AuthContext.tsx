@@ -168,7 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       mounted = false
     }
-  }, [pathname]) // se vuelve a correr al cambiar de ruta
+  }, [pathname]) // se vuelve a correr al cambiar de ruta 
 
   useEffect(() => {
     if (!token) return
