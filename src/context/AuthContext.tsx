@@ -11,7 +11,7 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
-const PUBLIC_ROUTES = ['/', '/login']
+const PUBLIC_ROUTES = ['/', '/login','/fomulario']
 
 // URL de refresh: usa env si existe, si no usa la que mandaste en el curl
 const REFRESH_URL =
