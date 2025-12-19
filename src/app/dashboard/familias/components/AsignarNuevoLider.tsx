@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { apiFetch } from '@/lib/api'
-import { Search, Users, AlertCircle} from 'lucide-react'
+import { Search, Users, AlertCircle } from 'lucide-react'
 import { Tooltip } from '@/components/Tooltip'
 
 // Tipos (ajusta según tu backend)
@@ -55,9 +55,10 @@ export default function PasoSeleccionarPersonaLider({
         const params = new URLSearchParams({
           page: '1',
           page_size: '100',
-          activo: 'true',
-          // No excluyas por idFamilia aquí si el backend no lo soporta
         })
+
+        params.set('vivos', 'true');
+
         if (busqueda) {
           if (/^\d+$/.test(busqueda)) {
             params.append('id', busqueda)
@@ -65,10 +66,10 @@ export default function PasoSeleccionarPersonaLider({
             params.append('nombre', busqueda)
           }
         }
-
-        const data = await apiFetch<PersonaResponse>(`/personas/?${params.toString()}`)
+        console.log(`/familias/${familiaId}/miembros?${params.toString()}`);
+        const data = await apiFetch<PersonaResponse>(`/familias/${familiaId}/miembros?${params.toString()}`)
         // Filtrar en el frontend: excluir a los miembros actuales de la familia
-        const disponibles = data.items.filter(p => p.idFamilia == familiaId)
+        const disponibles = data.items
         setPersonas(disponibles)
         setPersonasAFiltrar(disponibles)
       } catch (err) {
@@ -95,23 +96,23 @@ export default function PasoSeleccionarPersonaLider({
     }
   }, [busqueda, personas])
 
-    const handleSeleccionar = async (idPersona: string) => {
+  const handleSeleccionar = async (idPersona: string) => {
     try {
-        // 1. Llamar al endpoint para actualizar el líder de la familia
-        await apiFetch(`/familias/update`, {
+      // 1. Llamar al endpoint para actualizar el líder de la familia
+      await apiFetch(`/familias/update`, {
         method: 'PUT',
         body: JSON.stringify({
-            familiaId: familiaId,
-            representanteId: idPersona,
+          familiaId: familiaId,
+          representanteId: idPersona,
         }),
-        })
-        // 2. Notificar al padre que se seleccionó exitosamente
-        onPersonaSeleccionada(idPersona)
+      })
+      // 2. Notificar al padre que se seleccionó exitosamente
+      onPersonaSeleccionada(idPersona)
     } catch (err: any) {
-        console.error('Error al asignar nuevo líder', err)
-        setMensajeError(err.message || 'No se pudo asignar la persona como líder.')
+      console.error('Error al asignar nuevo líder', err)
+      setMensajeError(err.message || 'No se pudo asignar la persona como líder.')
     }
-    }
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -175,9 +176,9 @@ export default function PasoSeleccionarPersonaLider({
                       <button
                         type="button"
                         onClick={(e) => {
-                            e.stopPropagation()
-                            console.log("CLICK REAL")
-                            handleSeleccionar(p.id)
+                          e.stopPropagation()
+                          console.log("CLICK REAL")
+                          handleSeleccionar(p.id)
                         }}
                         className="text-[#7d4f2b] hover:text-white hover:bg-[#7d4f2b] border border-[#7d4f2b] px-3 py-1 rounded-full text-sm transition-colors"
                         title={`Asignar a ${p.nombre} como líder`}
