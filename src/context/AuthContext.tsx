@@ -11,9 +11,15 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
-const PUBLIC_ROUTES = ['/', '/login','/fomulario']
 
-// URL de refresh: usa env si existe, si no usa la que mandaste en el curl
+// Rutas públicas - corregido el typo
+const PUBLIC_ROUTES = ['/', '/login', '/formulario']
+
+// Función para validar si una ruta es pública (ignora query params)
+const isPublicRoute = (pathname: string): boolean => {
+  return PUBLIC_ROUTES.some(route => pathname.startsWith(route))
+}
+
 const REFRESH_URL =
   process.env.NEXT_PUBLIC_API_URL
     ? `${process.env.NEXT_PUBLIC_API_URL}/cmi-apigateway/refresh`
@@ -27,7 +33,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
 
-  // parseClaims: devuelve payload o null
   const parseClaims = (jwt: string) => {
     try {
       const parts = jwt.split('.')
@@ -45,10 +50,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return Date.now() > payload.exp * 1000
   }
 
-  // refreshSession lee refresh_token directamente desde localStorage
   const refreshSession = async (): Promise<boolean> => {
     try {
-      const storedRefresh = localStorage.getItem('refresh_token') // <-- leer localstorage directamente
+      const storedRefresh = localStorage.getItem('refresh_token')
       if (!storedRefresh) return false
 
       const res = await fetch(REFRESH_URL, {
@@ -63,7 +67,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const data = await res.json()
-      // posible shape: { jwt: '...', refresh_token: '...' } o { token: '...', refresh: '...' }
       const newJwt = data.jwt ?? data.token ?? null
       const newRefresh = data.refresh_token ?? data.refresh ?? null
 
@@ -72,12 +75,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return false
       }
 
-      // guardar en localStorage y en estado
       localStorage.setItem('token', newJwt)
       if (newRefresh) localStorage.setItem('refresh_token', newRefresh)
 
       setToken(newJwt)
-      setRefreshToken(newRefresh ?? storedRefresh) // si backend no devuelve refresh, mantener el anterior
+      setRefreshToken(newRefresh ?? storedRefresh)
       return true
     } catch (err) {
       console.error('refreshSession error:', err)
@@ -100,42 +102,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRefreshToken(refresh)
   }
 
-  // Validación inicial con claims y refresh si está vencido.
   useEffect(() => {
     let mounted = true
     const init = async () => {
       const savedToken = localStorage.getItem('token')
       const savedRefresh = localStorage.getItem('refresh_token')
 
-      // seteo inicial de estados para que hooks dependientes los tengan
       if (mounted) {
         setToken(savedToken)
         setRefreshToken(savedRefresh)
       }
 
-      // sin token: intentar refresh si hay refresh_token
+      // Verificar si la ruta actual es pública
+      const isPublic = isPublicRoute(pathname)
+
       if (!savedToken) {
         if (savedRefresh) {
           const ok = await refreshSession()
           if (!ok) {
-            // no se pudo refrescar: ir a login si no es ruta pública
-            if (!PUBLIC_ROUTES.includes(pathname)) {
+            if (!isPublic) {
               logout()
             } else {
-              // limpiar por seguridad
               localStorage.removeItem('refresh_token')
               setRefreshToken(null)
               setLoading(false)
             }
             return
           }
-          // refresh ok (ya setea token en refreshSession)
           if (mounted) setLoading(false)
           return
         }
 
-        // no hay token ni refresh
-        if (!PUBLIC_ROUTES.includes(pathname)) {
+        if (!isPublic) {
           logout()
         } else {
           setLoading(false)
@@ -143,20 +141,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return
       }
 
-      // hay token → validar claims
       if (isTokenExpired(savedToken)) {
         const ok = await refreshSession()
         if (!ok) {
-          // si falla el refresh, log out y redirigir
-          logout()
+          // Si es ruta pública, no hacer logout
+          if (isPublic) {
+            localStorage.removeItem('token')
+            localStorage.removeItem('refresh_token')
+            setToken(null)
+            setRefreshToken(null)
+            setLoading(false)
+          } else {
+            logout()
+          }
           return
         }
-        // si ok, ya actualizamos token en refreshSession
         if (mounted) setLoading(false)
         return
       }
 
-      // token válido
       if (mounted) {
         setToken(savedToken)
         setLoading(false)
@@ -168,7 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       mounted = false
     }
-  }, [pathname]) // se vuelve a correr al cambiar de ruta 
+  }, [pathname])
 
   useEffect(() => {
     if (!token) return
