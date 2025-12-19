@@ -105,17 +105,6 @@ export default function PasoSeleccionarPersonaLider({
             representanteId: idPersona,
         }),
         })
-
-        const payload = {
-            familia_id: Number(familiaId), // convertir a número si tu API espera integer
-            personas_id: [idPersona],       // arreglo de ids (strings según tu spec)
-        }
-        const res = await apiFetch<{ success?: boolean; message?: string }>('/personas/assing-family',
-        {
-            method: 'PATCH',
-            body: JSON.stringify(payload),
-        }
-        )
         // 2. Notificar al padre que se seleccionó exitosamente
         onPersonaSeleccionada(idPersona)
     } catch (err: any) {
